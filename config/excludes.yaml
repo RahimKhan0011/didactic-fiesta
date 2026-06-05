@@ -1,0 +1,10 @@
+exc.junk: cam, hdcam, hdts, ts, screener
+exc.multi: multi, dubbed, vostfr, french, vf2, vff, truefrench
+exc.sports: mlb, nfl, nba, nhl, BBQ.Brawl
+exc.lowq: 720p, 480p, dvdrip
+exc.shows: jimmy kimmel, jimmy fallon, seth meyers, stephen colbert, conan, daily
+  show, last week tonight, late show, late night, good morning, today show, Top Chef,
+  Below Deck Down Under, Watch What Happens Live, Hazardous History with Henry Winkler,
+  Americas Got Talent, Love Island, RuPauls Drag Race All Stars
+exc.lowprio: GeneMige
+exc.aud: dual

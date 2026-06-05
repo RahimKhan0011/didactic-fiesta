@@ -1,0 +1,51 @@
+quality:
+  q.1080p: 1080p
+  q.2160p: 2160p
+  q.720p: 720p
+  q.4k: 2160p, uhd
+
+source:
+  src.webdl: web-dl, webdl
+  src.webrip: webrip
+  src.bluray: bluray, blu-ray
+  src.remux: remux
+  src.hdtv: hdtv
+  src.web: web-dl, webdl, webrip, web
+
+tracker:
+  trk.tl: tl
+  trk.az: avistaz
+  trk.ar: ar
+  trk.huno: huno
+  trk.fl: fl
+  trk.erai: erai
+  trk.ipt: ipt
+
+codec:
+  cod.x265: x265, hevc, h265, h.265
+  cod.x264: x264, h264, h.264, avc
+
+category:
+  cat.tl.movies: Movies, BlurayRip, WEBRip, HDRip, 4K, Bluray
+  cat.tl.tv: Episodes HD, Episodes SD, Foreign
+  cat.tl.4k: 4K
+  cat.tl.anime: Anime
+  cat.tl.games: PC, Nintendo Switch
+  cat.az.movies: Movie
+  cat.az.tv: TV-Show
+  cat.ar.movies: Movies
+  cat.ar.tv: TV
+  cat.huno.movies: Movie
+  cat.huno.tv: TV-Show
+  cat.tl.packs: BoxSets
+  cat.fl.movies: Filme HD, Filme HD-RO, Filme 4K, Filme SD, Filme Blu-Ray, Filme DVD
+  cat.fl.tv: Seriale HD, Seriale 4K, Seriale SD
+  cat.ipt.movies: Movie
+  cat.ipt.tv: TV
+  cat.ipt.anime: Anime
+  cat.ipt.games: Games
+  cat.erai.anime: Anime
+  cat.ipt.tv: TV/Web-DL, TV/x265, TV/x264, TV/DVDRip, TV/HDTV, TV
+  cat.ipt.movies: Movie/HD/Bluray, Movie/Web-DL, Movie/x265, Movie/DVD-R, Movie
+  cat.ipt.anime: Anime
+  cat.ipt.games: Games/PC-ISO, Games/PC-Rip, Games

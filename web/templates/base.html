@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Monitor{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <span class="logo">🏴‍☠️ Monitor</span>
+        <a href="/" {% if request.path == '/' %}class="active"{% endif %}>Dashboard</a>
+        <a href="/torrents" {% if '/torrents' in request.path %}class="active"{% endif %}>Torrents</a>
+        <a href="/shows" {% if '/shows' in request.path or '/show/' in request.path %}class="active"{% endif %}>Shows</a>
+        <a href="/movies" {% if '/movies' in request.path %}class="active"{% endif %}>Movies</a>
+        <a href="/games" {% if '/games' in request.path %}class="active"{% endif %}>Games</a>
+        <a href="/groups" {% if '/groups' in request.path %}class="active"{% endif %}>Groups</a>
+        <a href="/stats" {% if '/stats' in request.path %}class="active"{% endif %}>Stats</a>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

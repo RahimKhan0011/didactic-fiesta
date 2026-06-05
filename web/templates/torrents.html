@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Torrents{% endblock %}
+{% block content %}
+<h1>Torrents ({{ total }})</h1>
+
+<form class="filters" method="get">
+    <input type="text" name="q" placeholder="Search..." value="{{ search }}">
+    <select name="tracker">
+        <option value="">All Trackers</option>
+        {% for t in trackers_list %}
+        <option value="{{ t.tracker }}" {% if tracker == t.tracker %}selected{% endif %}>{{ t.tracker }}</option>
+        {% endfor %}
+    </select>
+    <select name="category">
+        <option value="">All Categories</option>
+        {% for c in categories_list %}
+        <option value="{{ c.category }}" {% if category == c.category %}selected{% endif %}>{{ c.category }}</option>
+        {% endfor %}
+    </select>
+    <select name="group">
+        <option value="">All Groups</option>
+        {% for g in groups_list %}
+        <option value="{{ g.parsed_group }}" {% if group == g.parsed_group %}selected{% endif %}>{{ g.parsed_group }}</option>
+        {% endfor %}
+    </select>
+    <select name="source">
+        <option value="">All Sources</option>
+        {% for s in sources_list %}
+        <option value="{{ s.src }}" {% if source == s.src %}selected{% endif %}>{{ s.src }} ({{ s.cnt }})</option>
+        {% endfor %}
+    </select>
+    <select name="type">
+        <option value="">All Types</option>
+        {% for t in types_list %}
+        <option value="{{ t.content_type }}" {% if content_type == t.content_type %}selected{% endif %}>{{ t.content_type }}</option>
+        {% endfor %}
+    </select>
+    <label><input type="checkbox" name="notified" value="1" {% if notified_only %}checked{% endif %}> Notified only</label>
+    <button type="submit">Filter</button>
+</form>
+
+<table>
+    <tr>
+        <th>Tracker</th>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Source</th>
+        <th>Service</th>
+        <th>Group</th>
+        <th>Res</th>
+        <th>Size</th>
+        <th>S/L</th>
+        <th>Age</th>
+        <th>Status</th>
+    </tr>
+    {% for r in rows %}
+    <tr>
+        <td><span class="badge badge-{{ r.tracker or 'tl' }}">{{ trk_name(r.tracker) }}</span></td>
+        <td class="title-text"><a href="/torrent/{{ r.torrent_id }}">{{ r.title }}</a></td>
+        <td><span class="badge badge-{{ r.content_type or 'unknown' }}">{{ r.content_type or '' }}</span></td>
+        <td>{{ r.parsed_source_family or r.parsed_source or '' }}</td>
+        <td>{{ r.parsed_service_code or '' }}</td>
+        <td>{{ r.parsed_group or '' }}</td>
+        <td>{{ r.parsed_res or '' }}</td>
+        <td>{{ format_size(r.size_bytes) }}</td>
+        <td>{{ r.seeders }}/{{ r.leechers }}</td>
+        <td>{{ time_ago(r.pub_timestamp) }}</td>
+        <td>{% if r.notified %}<span class="badge badge-notified">✓</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+</table>
+    {% for r in rows %}
+    <tr>
+        <td><span class="badge badge-{{ r.tracker or 'tl' }}">{{ r.tracker or 'tl' }}</span></td>
+        <td class="title-text"><a href="/torrent/{{ r.torrent_id }}">{{ r.title }}</a></td>
+        <td><span class="badge badge-{{ r.content_type or 'unknown' }}">{{ r.content_type or '' }}</span></td>
+        <td>{{ r.category or '' }}</td>
+        <td>{{ r.parsed_group or '' }}</td>
+        <td>{{ r.parsed_res or '' }}</td>
+        <td>{{ format_size(r.size_bytes) }}</td>
+        <td>{{ r.seeders }}/{{ r.leechers }}</td>
+        <td>{{ time_ago(r.pub_timestamp) }}</td>
+        <td>{% if r.notified %}<span class="badge badge-notified">✓</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<div class="pagination">
+    {% if page > 1 %}<a href="?page={{ page-1 }}&q={{ search }}&tracker={{ tracker }}&category={{ category }}&group={{ group }}&type={{ content_type }}&notified={{ notified_only }}">← Prev</a>{% endif %}
+    <span style="color:#8b949e; padding:6px;">Page {{ page }}/{{ pages }}</span>
+    {% if page < pages %}<a href="?page={{ page+1 }}&q={{ search }}&tracker={{ tracker }}&category={{ category }}&group={{ group }}&type={{ content_type }}&notified={{ notified_only }}">Next →</a>{% endif %}
+</div>
+{% endblock %}

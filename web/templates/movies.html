@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Movies{% endblock %}
+{% block content %}
+<h1>Movies ({{ rows|length }})</h1>
+
+<table>
+    <tr>
+        <th>Tracker</th>
+        <th>Title</th>
+        <th>Year</th>
+        <th>Group</th>
+        <th>Res</th>
+        <th>Source</th>
+        <th>Size</th>
+        <th>S/L</th>
+        <th>Age</th>
+        <th>IMDb</th>
+    </tr>
+    {% for r in rows %}
+    <tr>
+        <td><span class="badge badge-{{ r.tracker or 'tl' }}">{{ r.tracker or 'tl' }}</span></td>
+        <td class="title-text"><a href="/torrent/{{ r.torrent_id }}">{{ r.parsed_name or r.title }}</a></td>
+        <td>{{ r.parsed_year or '' }}</td>
+        <td>{{ r.parsed_group or '' }}</td>
+        <td>{{ r.parsed_res or '' }}</td>
+        <td>{{ r.parsed_source or '' }}</td>
+        <td>{{ format_size(r.size_bytes) }}</td>
+        <td>{{ r.seeders }}/{{ r.leechers }}</td>
+        <td>{{ time_ago(r.pub_timestamp) }}</td>
+        <td>{% if r.imdb_id %}<a href="https://imdb.com/title/{{ r.imdb_id }}">{{ r.imdb_id }}</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

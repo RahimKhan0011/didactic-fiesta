@@ -1,0 +1,23 @@
+tier_alerts:
+  tier1: true
+  tier2: false
+  tier3: false
+
+ignore_categories: Sports
+
+emergency_keywords: UFC, PPV, WWE, Boxing
+
+quiet_hours:
+  enabled: false
+  start: "08:00"
+  end: "14:00"
+  timezone: "Asia/Kolkata"
+
+smart_interval:
+  peak_multiplier: 1.0
+  dead_multiplier: 1.0
+  tier1_burst: 10
+  cooldown_multiplier: 1.0
+  cooldown_after_empty: 99
+  peak_hours: 0-23
+  dead_hours: 0-0

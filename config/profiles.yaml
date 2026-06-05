@@ -1,0 +1,294 @@
+tl-shows:
+  desc: "TL:Shows"
+  rule: "[trk.tl] and [wl.tl_shows] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+  track_episodes: true
+
+tl-race-tier1:
+  desc: "TL:Race:Tier1"
+  rule: "[trk.tl] and [tier1] and [src.web] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.sports, exc.shows"
+  mode: race
+  tmdb: true
+  max_age: 60
+
+tl-race-4k:
+  desc: "TL:Race:4K"
+  rule: "[trk.tl] and [[tier1] or [tier2]] and [cat.tl.4k] and [[q.2160p] or [src.remux]]"
+  exclude: "exc.junk"
+  mode: race
+  tmdb: true
+  max_age: 120
+
+tl-new-movies:
+  desc: "TL:New Movies"
+  rule: "[trk.tl] and [cat.tl.movies] and [recent_year] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+tl-watchlist-movies:
+  desc: "TL:Movie:Watchlist"
+  rule: "[trk.tl] and [wl.tl_movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+tl-anime:
+  desc: "TL:Anime"
+  rule: "[trk.tl] and [anime] and [cat.tl.anime]"
+  exclude: "exc.lowq"
+  mode: content
+  tmdb: true
+
+tl-games:
+  desc: "TL:Games"
+  rule: "[trk.tl] and [games] and [cat.tl.games]"
+  exclude: ""
+  mode: race
+  tmdb: false
+  max_age: 180
+
+az-shows:
+  desc: "AZ:Shows"
+  rule: "[trk.az] and [wl.az_shows] and [cat.az.tv] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+  track_episodes: true
+
+az-premieres:
+  desc: "AZ:Premieres"
+  rule: "[trk.az] and [cat.az.tv] and [[new_show_early] or [season_premiere]] and [q.1080p]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+az-new-movies:
+  desc: "AZ:Movies"
+  rule: "[trk.az] and [recent_year] and [cat.az.movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+az-watchlist-movies:
+  desc: "AZ:Movie:Watchlist"
+  rule: "[trk.az] and [wl.az_movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+ar-race-tier1:
+  desc: "AR:Race:Tier1"
+  rule: "[trk.ar] and [tier1] and [src.web] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.sports, exc.shows"
+  mode: race
+  tmdb: true
+  max_age: 60
+
+ar-games:
+  desc: "AR:Games"
+  rule: "[trk.ar] and [games]"
+  exclude: ""
+  mode: race
+  tmdb: false
+  max_age: 180
+
+huno-shows:
+  desc: "HUNO:Shows"
+  rule: "[trk.huno] and [wl.huno_shows] and [cat.huno.tv] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk"
+  mode: content
+  tmdb: true
+  track_episodes: true
+
+huno-premieres:
+  desc: "HUNO:Premieres"
+  rule: "[trk.huno] and [cat.huno.tv] and [[new_show_early] or [season_premiere]] and [q.1080p]"
+  exclude: "exc.junk"
+  mode: content
+  tmdb: true
+
+huno-new-movies:
+  desc: "HUNO:Movies"
+  rule: "[trk.huno] and [recent_year] and [cat.huno.movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk"
+  mode: content
+  tmdb: true
+
+huno-watchlist-movies:
+  desc: "HUNO:Movie:Watchlist"
+  rule: "[trk.huno] and [wl.huno_movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk"
+  mode: content
+  tmdb: true
+
+fl-race-tier1:
+  desc: "FL:Race:Tier1"
+  rule: "[trk.fl] and [tier1] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: race
+  tmdb: true
+  max_age: 60
+
+fl-shows:
+  desc: "FL:Shows"
+  rule: "[trk.fl] and [wl.fl_shows] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+  track_episodes: true
+
+fl-new-movies:
+  desc: "FL:New Movies"
+  rule: "[trk.fl] and [recent_year] and [cat.fl.movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+fl-watchlist-movies:
+  desc: "FL:Movie:Watchlist"
+  rule: "[trk.fl] and [wl.fl_movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+fl-games:
+  desc: "FL:Games"
+  rule: "[trk.fl] and [games]"
+  exclude: ""
+  mode: race
+  tmdb: false
+  max_age: 180
+
+erai-anime:
+  desc: "Erai:Anime"
+  rule: "[trk.erai] and [q.1080p]"
+  exclude: ""
+  mode: content
+  tmdb: true
+
+erai-watchlist:
+  desc: "Erai:Watchlist"
+  rule: "[trk.erai] and [wl.erai_shows] and [q.1080p]"
+  exclude: ""
+  mode: content
+  tmdb: true
+  track_episodes: true
+
+ipt-race-tier1:
+  desc: "IPT:Race:Tier1"
+  rule: "[trk.ipt] and [tier1] and [src.web] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.sports, exc.shows"
+  mode: race
+  tmdb: true
+  max_age: 60
+
+ipt-shows:
+  desc: "IPT:Shows"
+  rule: "[trk.ipt] and [wl.ipt_shows] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+  track_episodes: true
+
+ipt-new-movies:
+  desc: "IPT:New Movies"
+  rule: "[trk.ipt] and [recent_year] and [cat.ipt.movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.lowprio, exc.aud"
+  mode: content
+  tmdb: true
+
+ipt-watchlist-movies:
+  desc: "IPT:Movie:Watchlist"
+  rule: "[trk.ipt] and [wl.ipt_movies] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+ipt-anime:
+  desc: "IPT:Anime"
+  rule: "[trk.ipt] and [cat.ipt.anime] and [q.1080p]"
+  exclude: "exc.lowq"
+  mode: content
+  tmdb: true
+
+ipt-games:
+  desc: "IPT:Games"
+  rule: "[trk.ipt] and [cat.ipt.games] and [games]"
+  exclude: ""
+  mode: race
+  tmdb: false
+  max_age: 180
+
+ipt-megusta:
+  desc: "IPT:MeGusta"
+  rule: "[trk.ipt] and [megusta] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.shows"
+  mode: content
+  tmdb: true
+
+ipt-any-tv:
+  desc: "IPT:Any TV"
+  rule: "[trk.ipt] and [cat.ipt.tv] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.shows"
+  mode: content
+  tmdb: true
+
+tl-premieres:
+  desc: "TL:Premieres"
+  rule: "[trk.tl] and [[new_show_early] or [season_premiere]] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.shows"
+  mode: content
+  tmdb: true
+
+tl-season-packs:
+  desc: "TL:Season Packs"
+  rule: "[trk.tl] and [season_pack] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+ar-premieres:
+  desc: "AR:Premieres"
+  rule: "[trk.ar] and [[new_show_early] or [season_premiere]] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.shows"
+  mode: content
+  tmdb: true
+
+ar-season-packs:
+  desc: "AR:Season Packs"
+  rule: "[trk.ar] and [season_pack] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+fl-premieres:
+  desc: "FL:Premieres"
+  rule: "[trk.fl] and [[new_show_early] or [season_premiere]] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+fl-season-packs:
+  desc: "FL:Season Packs"
+  rule: "[trk.fl] and [season_pack] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true
+
+ipt-premieres:
+  desc: "IPT:Premieres"
+  rule: "[trk.ipt] and [[new_show_early] or [season_premiere]] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi, exc.shows"
+  mode: content
+  tmdb: true
+
+ipt-season-packs:
+  desc: "IPT:Season Packs"
+  rule: "[trk.ipt] and [season_pack] and [[q.1080p] or [q.2160p]]"
+  exclude: "exc.junk, exc.multi"
+  mode: content
+  tmdb: true

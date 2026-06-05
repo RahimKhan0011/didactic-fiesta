@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Stats{% endblock %}
+{% block content %}
+<h1>Statistics</h1>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <h3>By Tracker</h3>
+        {% set max_t = by_tracker[0].cnt if by_tracker else 1 %}
+        {% for r in by_tracker %}
+        <div class="bar">
+            <span class="bar-label">{{ r.tracker or 'unknown' }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_t * 100) }}%"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="chart-box">
+        <h3>By Content Type</h3>
+        {% set max_ty = by_type[0].cnt if by_type else 1 %}
+        {% for r in by_type %}
+        <div class="bar">
+            <span class="bar-label">{{ r.content_type or '?' }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_ty * 100) }}%; background: #a371f7"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <h3>By Category</h3>
+        {% set max_c = by_category[0].cnt if by_category else 1 %}
+        {% for r in by_category[:15] %}
+        <div class="bar">
+            <span class="bar-label">{{ r.category }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_c * 100) }}%; background: #3fb950"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="chart-box">
+        <h3>By Resolution</h3>
+        {% set max_r = by_resolution[0].cnt if by_resolution else 1 %}
+        {% for r in by_resolution %}
+        <div class="bar">
+            <span class="bar-label">{{ r.parsed_res }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_r * 100) }}%; background: #f0883e"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <h3>Hourly Activity (UTC)</h3>
+        {% set max_h = hourly|map(attribute='cnt')|max if hourly else 1 %}
+        {% for r in hourly %}
+        <div class="bar">
+            <span class="bar-label">{{ '%02d'|format(r.hour) }}:00</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_h * 100) }}%; background: #58a6ff"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="chart-box">
+        <h3>Daily (last 30 days)</h3>
+        {% set max_d = by_day[0].cnt if by_day else 1 %}
+        {% for r in by_day[:14] %}
+        <div class="bar">
+            <span class="bar-label">{{ r.day }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_d * 100) }}%; background: #da3633"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="number">{{ total }}</div>
+        <div class="label">Total Torrents</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">{{ today }}</div>
+        <div class="label">Today</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">{{ notified }}</div>
+        <div class="label">Notified</div>
+    </div>
+    <div class="stat-card">
+        <div class="number">{{ shows_count }}</div>
+        <div class="label">Tracked Shows</div>
+    </div>
+</div>
+
+<div class="chart-row">
+    <div class="chart-box">
+        <h3>By Tracker</h3>
+        {% for r in trackers %}
+        <div class="bar">
+            <span class="bar-label">{{ r.tracker or 'unknown' }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / total * 100) if total else 0 }}%"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="chart-box">
+        <h3>Top Groups</h3>
+        {% set max_g = top_groups[0].cnt if top_groups else 1 %}
+        {% for r in top_groups %}
+        <div class="bar">
+            <span class="bar-label">{{ r.parsed_group }}</span>
+            <div class="bar-fill" style="width: {{ (r.cnt / max_g * 100) }}%"></div>
+            <span class="bar-count">{{ r.cnt }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="section">
+    <h2>Recent Entries</h2>
+    <table>
+        <tr>
+            <th>Tracker</th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Group</th>
+            <th>S/L</th>
+            <th>Age</th>
+            <th>Status</th>
+        </tr>
+        {% for r in recent %}
+        <tr>
+            <td><span class="badge badge-{{ r.tracker or 'tl' }}">{{ r.tracker or 'tl' }}</span></td>
+            <td class="title-text"><a href="/torrent/{{ r.torrent_id }}">{{ r.title }}</a></td>
+            <td>{{ r.category or '' }}</td>
+            <td>{{ r.parsed_group or '' }}</td>
+            <td>{{ r.seeders }}/{{ r.leechers }}</td>
+            <td>{{ time_ago(r.pub_timestamp) }}</td>
+            <td>
+                {% if r.notified %}<span class="badge badge-notified">sent</span>
+                {% else %}<span class="badge badge-silent">—</span>{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% if families %}
+<div class="section">
+    <h2>Recent Families (multiple releases)</h2>
+    <table>
+        <tr>
+            <th>Family</th>
+            <th>Releases</th>
+            <th>Latest</th>
+        </tr>
+        {% for f in families %}
+        <tr>
+            <td><a href="/family/{{ f.family_key }}">{{ f.family_key }}</a></td>
+            <td>{{ f.cnt }}</td>
+            <td>{{ time_ago(f.latest) }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Groups{% endblock %}
+{% block content %}
+<h1>Groups ({{ rows|length }})</h1>
+
+<table>
+    <tr>
+        <th>Group</th>
+        <th>Releases</th>
+        <th>First Seen</th>
+        <th>Last Seen</th>
+        <th>Peak Hours</th>
+        <th>Avg/Day</th>
+    </tr>
+    {% for r in rows %}
+    {% set p = pattern_map.get(r.parsed_group) %}
+    <tr>
+        <td><strong><a href="/torrents?group={{ r.parsed_group }}">{{ r.parsed_group }}</a></strong></td>
+        <td>{{ r.cnt }}</td>
+        <td>{{ time_ago(r.first_seen) }}</td>
+        <td>{{ time_ago(r.last_seen) }}</td>
+        <td>{% if p %}{{ '%02d'|format(p.peak_hour_start) }}:00-{{ '%02d'|format(p.peak_hour_end) }}:00 UTC{% else %}—{% endif %}</td>
+        <td>{% if p %}{{ p.avg_per_day }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

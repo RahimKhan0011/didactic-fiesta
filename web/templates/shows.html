@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Shows{% endblock %}
+{% block content %}
+<h1>Tracked Shows ({{ shows|length }})</h1>
+
+<table>
+    <tr>
+        <th>Show</th>
+        <th>Latest</th>
+        <th>Episodes</th>
+        <th>Seasons</th>
+    </tr>
+    {% for s in shows %}
+    <tr>
+        <td><a href="/show/{{ s.name }}">{{ s.name }}</a></td>
+        <td>{% if s.latest_e %}S{{ '%02d'|format(s.latest_s) }}E{{ '%02d'|format(s.latest_e) }}{% else %}waiting{% endif %}</td>
+        <td>{{ s.total_eps }}</td>
+        <td>{{ s.seasons|length }}</td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Family: {{ first.parsed_name }}{% endblock %}
+{% block content %}
+<h1>📦 {{ first.parsed_name or 'Unknown' }}
+    {% if first.parsed_season is not none %}S{{ '%02d'|format(first.parsed_season) }}{% endif %}
+    {% if first.parsed_episode is not none %}E{{ '%02d'|format(first.parsed_episode) }}{% endif %}
+    {{ first.parsed_res or '' }}
+</h1>
+
+<p style="color:#8b949e;">Family key: <code>{{ fkey }}</code></p>
+<p>{{ members|length }} total releases across {{ by_variant|length }} variants</p>
+
+{% for vk, data in by_variant.items() %}
+<div class="section">
+    <h2>
+        💿 {{ data.source or 'Unknown' }}
+        {% if data.service %} / {{ data.service }}{% endif %}
+    </h2>
+    <table>
+        <tr>
+            <th>Tracker</th>
+            <th>Title</th>
+            <th>Group</th>
+            <th>Codec</th>
+            <th>Audio</th>
+            <th>HDR</th>
+            <th>Size</th>
+            <th>S/L</th>
+            <th>Age</th>
+            <th>Notified</th>
+        </tr>
+        {% for m in data.entries %}
+        <tr>
+            <td><span class="badge badge-{{ m.tracker }}">{{ trk_name(m.tracker) }}</span></td>
+            <td class="title-text"><a href="/torrent/{{ m.torrent_id }}">{{ m.title[:55] }}</a></td>
+            <td>{{ m.parsed_group or '' }}</td>
+            <td>{{ m.parsed_codec or '' }}</td>
+            <td>{{ clean_audio(m.parsed_audio) }}</td>
+            <td>{{ m.parsed_hdr or '' }}</td>
+            <td>{{ format_size(m.size_bytes) }}</td>
+            <td>{{ m.seeders }}/{{ m.leechers }}</td>
+            <td>{{ time_ago(m.first_seen) }}</td>
+            <td>{% if m.notified %}<span class="badge badge-notified">✓</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endfor %}
+{% endblock %}

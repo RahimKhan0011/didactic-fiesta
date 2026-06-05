@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ name }}{% endblock %}
+{% block content %}
+<h1>📺 {{ name }}</h1>
+
+{% if show %}
+<p>Latest: S{{ '%02d'|format(show.latest_season) }}E{{ '%02d'|format(show.latest_episode) }}</p>
+{% endif %}
+
+{% for s in seasons|sort %}
+<div class="section">
+    <h2>Season {{ s }}</h2>
+    <div class="episode-grid">
+        {% set eps = seasons[s] %}
+        {% set ep_nums = [] %}
+        {% for ep in eps %}{% if ep.episode not in ep_nums %}{% if ep_nums.append(ep.episode) %}{% endif %}{% endif %}{% endfor %}
+        {% set ep_nums_sorted = ep_nums|sort %}
+        {% if ep_nums_sorted %}
+            {% for e in range(ep_nums_sorted[0], ep_nums_sorted[-1] + 1) %}
+                {% if e in ep_nums_sorted %}
+                    <span class="ep ep-found" title="Found">E{{ '%02d'|format(e) }}</span>
+                {% else %}
+                    <span class="ep ep-missing" title="Missing">E{{ '%02d'|format(e) }}</span>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if related %}
+<div class="section">
+    <h2>Related Torrents</h2>
+    <table>
+        <tr><th>Tracker</th><th>Title</th><th>Group</th><th>Res</th><th>Age</th></tr>
+        {% for r in related %}
+        <tr>
+            <td><span class="badge badge-{{ r.tracker or 'tl' }}">{{ r.tracker or 'tl' }}</span></td>
+            <td><a href="/torrent/{{ r.torrent_id }}">{{ r.title }}</a></td>
+            <td>{{ r.parsed_group or '' }}</td>
+            <td>{{ r.parsed_res or '' }}</td>
+            <td>{{ time_ago(r.pub_timestamp) }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+{% endblock %}
