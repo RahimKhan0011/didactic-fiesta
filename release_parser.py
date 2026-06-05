@@ -336,7 +336,8 @@ def parse(title: str, category: str = "") -> ParsedRelease:
     title_clean = re.sub(r'\((?:AMZN|NF|CR|HIDIVE|FUNI|BILI|DSNP|ATVP|HMAX|PCOK|PMTP)\)', '', title_clean, flags=re.IGNORECASE).strip()
     title_clean = re.sub(r'\((?:Multi|REPACK|PROPER|RERIP|Chinese Audio|Japanese Audio|English Audio|Dual Audio)\)', '', title_clean, flags=re.IGNORECASE).strip()
     title_clean = re.sub(r'\s+', ' ', title_clean).strip()
-    title_clean = re.sub(r'\[(?:[a-z]{2})\]', '', title_clean).strip()
+    # Remove 2-letter language codes AND full language names like [Turkish], [English], [Spanish], etc.
+    title_clean = re.sub(r'\[(?:[a-z]{2}|Turkish|English|Japanese|Spanish|French|German|Italian|Portuguese|Dutch|Russian|Arabic|Chinese|Hindi|Korean|Thai|Vietnamese|Polish|Greek|Hebrew|Indonesian|Filipino)\]', '', title_clean, flags=re.IGNORECASE).strip()
     title_clean = re.sub(r'\s+', ' ', title_clean).strip()
 
     bracket_tech = re.search(r'\[(?:CR\s+)?(?:WEB-DL|WEBRip|WEB|HDTV)\s+\d+p\s+[A-Z0-9\s.+-]+\]', title_clean, re.IGNORECASE)

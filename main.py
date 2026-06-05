@@ -341,6 +341,7 @@ def send_aggregated_alerts(pending_alerts):
                 if not existing["pack_info"] and alert.get("pack_info"):
                     existing["pack_info"] = alert.get("pack_info")
 
+    # Handle episode suppression: keep only latest episode per show+season
     show_seasons = {}
     for fkey, fdata in families.items():
         p = fdata["best_match"].entry.parsed
@@ -355,9 +356,29 @@ def send_aggregated_alerts(pending_alerts):
             show_seasons[show_key] = []
         show_seasons[show_key].append((fkey, p.episode, fdata))
 
+    # Handle season pack suppression: keep only latest season pack per show
+    show_packs = {}
+    for fkey, fdata in families.items():
+        p = fdata["best_match"].entry.parsed
+        if not p:
+            continue
+        # Only suppress old season packs if this is a season pack
+        from models import ContentType
+        if p.content_type != ContentType.SEASON_PACK:
+            continue
+        if p.season is None:
+            continue
+
+        show_key = f"{(p.clean_name or '').lower()}|pack"
+
+        if show_key not in show_packs:
+            show_packs[show_key] = []
+        show_packs[show_key].append((fkey, p.season, fdata))
+
     suppress_keys = set()
     episode_summaries = {}
 
+    # Suppress older episodes
     for show_key, episodes in show_seasons.items():
         if len(episodes) <= 1:
             continue
@@ -377,6 +398,29 @@ def send_aggregated_alerts(pending_alerts):
             "latest_ep": latest_ep,
             "other_eps": other_eps,
             "total": len(episodes),
+        }
+
+    # Suppress older season packs
+    pack_summaries = {}
+    for show_key, packs in show_packs.items():
+        if len(packs) <= 1:
+            continue
+
+        packs.sort(key=lambda x: x[1], reverse=True)
+
+        latest_fkey = packs[0][0]
+        latest_season = packs[0][1]
+
+        older_seasons = sorted([p[1] for p in packs[1:]])
+
+        for fkey, season_num, fdata in packs[1:]:
+            suppress_keys.add(fkey)
+            db.mark_notified(fdata["best_match"].entry.torrent_id, fdata["best_match"].profile_name)
+
+        pack_summaries[latest_fkey] = {
+            "latest_season": latest_season,
+            "older_seasons": older_seasons,
+            "total": len(packs),
         }
 
     had_tier1 = False
@@ -404,6 +448,11 @@ def send_aggregated_alerts(pending_alerts):
         if p and p.season is not None and p.episode is not None:
            _delete_previous_episode_alerts(p.clean_name, p.season, p.episode)
 
+        # Delete alerts for older season packs when a new one arrives
+        from models import ContentType
+        if p and p.content_type == ContentType.SEASON_PACK and p.season is not None:
+            _delete_older_season_pack_alerts(p.clean_name, p.season)
+
         for suppressed_fkey in suppress_keys:
            if suppressed_fkey.startswith(fkey.rsplit("|", 1)[0]):
                old_suppressed = matcher._get_family_notifications(suppressed_fkey)
@@ -428,10 +477,24 @@ def send_aggregated_alerts(pending_alerts):
            log.info(f"QUEUED: {result.entry.title[:80]}")
         else:
            notifier.send_match(result, ep_info, pack_info)
+           
+           # Pin latest message for tracked shows with episodes or season packs
+           show_kw = [k for k in result.matched_keywords if str(k).startswith("show:")]
+           if show_kw and (ep_info or pack_info):
+               for chat_id in config.CHAT_IDS:
+                   # Get last notification to pin it
+                   last_notif = matcher._get_family_notifications(fkey)
+                   if last_notif:
+                       for notif in last_notif:
+                           if notif.get("chat_id") == chat_id:
+                               notifier._pin_message(str(chat_id), notif.get("message_id", 0))
+                               break
+           
            sent_count += 1
            time.sleep(0.1)
 
     return had_tier1, sent_count
+
 
 def _delete_previous_episode_alerts(show_name, season, current_episode):
     if not show_name or season is None or current_episode is None:
