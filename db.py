@@ -639,6 +639,42 @@ def season_pack_exists(name: str, season: int, resolution: str) -> bool:
     conn.close()
     return row is not None
 
+
+def get_older_season_packs(name: str, season: int, exclude_id: int = 0) -> list[dict]:
+    """Get season packs for the same show with lower season numbers."""
+    if not name or season is None:
+        return []
+    conn = _connect(DB_MAIN)
+    rows = conn.execute("""
+        SELECT torrent_id, parsed_season, parsed_res, first_seen
+        FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season < ?
+          AND content_type = 'season_pack'
+          AND torrent_id != ?
+        ORDER BY parsed_season DESC
+    """, (name, season, exclude_id)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_older_season_packs(name: str, season: int, exclude_id: int = 0) -> int:
+    """Delete season packs for the same show with lower season numbers."""
+    if not name or season is None:
+        return 0
+    conn = _connect(DB_MAIN)
+    cursor = conn.execute("""
+        DELETE FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season < ?
+          AND content_type = 'season_pack'
+          AND torrent_id != ?
+    """, (name, season, exclude_id))
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted_count
+
 def log_upload(group: str, category: str, content_type: str, pub_ts: float):
     from datetime import datetime, timezone
     dt = datetime.fromtimestamp(pub_ts, tz=timezone.utc)

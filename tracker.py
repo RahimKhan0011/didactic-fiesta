@@ -69,6 +69,39 @@ def process_episode(entry: TorrentEntry, parsed: ParsedRelease) -> dict | None:
     }
 
 
+def process_season_pack(entry: TorrentEntry, parsed: ParsedRelease) -> dict | None:
+    """Process season pack and delete older season packs for the same show."""
+    if parsed.content_type != ContentType.SEASON_PACK:
+        return None
+    if not parsed.clean_name or parsed.season is None:
+        return None
+
+    tracked = db.get_all_tracked_shows()
+    matched_show = None
+    for show in tracked:
+        if show.show_name.lower() in parsed.clean_name.lower():
+            matched_show = show
+            break
+
+    if not matched_show:
+        return None
+
+    # Delete older season packs for this show
+    older_packs = db.get_older_season_packs(matched_show.show_name, parsed.season, entry.torrent_id)
+    deleted_count = db.delete_older_season_packs(matched_show.show_name, parsed.season, entry.torrent_id)
+    
+    if deleted_count > 0:
+        log.info(f"Deleted {deleted_count} older season pack(s) for {matched_show.show_name}")
+
+    return {
+        "show": matched_show.show_name,
+        "season": parsed.season,
+        "prev_latest_s": matched_show.latest_season,
+        "had_previous": len(older_packs) > 0,
+        "deleted_count": deleted_count,
+    }
+
+
 def backfill_episodes(show_name: str) -> int:
     conn = sqlite3.connect(str(config.DB_MAIN))
     conn.row_factory = sqlite3.Row

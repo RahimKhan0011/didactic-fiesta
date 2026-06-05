@@ -80,7 +80,7 @@ def compute_interval(had_tier1: bool) -> int:
 def _normalize_tracker_title(entry):
     if entry.tracker == "ar":
         entry.title = re.sub(
-            r'^(?:TvHD|TvSD|TvUHD|MovieHD|MovieSD|Movie4K|GamesPC|AppsPC|MusicHD|MusicSD|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
+            r'^(?:TvHD|TvSD|TvUHD|TvPackHD|MovieHD|MovieSD|Movie4K|GamesPC|AppsPC|MusicHD|MusicSD|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
             '', entry.title
         ).strip()
 
@@ -281,12 +281,14 @@ def process_new_entry(entry):
         return None
 
     ep_info = tracker.process_episode(entry, parsed)
+    pack_info = tracker.process_season_pack(entry, parsed)
 
     return {
         "entry": entry,
         "parsed": parsed,
         "matches": matches,
         "ep_info": ep_info,
+        "pack_info": pack_info,
     }
 
 
@@ -301,6 +303,7 @@ def send_aggregated_alerts(pending_alerts):
                 families[fkey] = {
                     "best_match": match_result,
                     "ep_info": alert["ep_info"],
+                    "pack_info": alert.get("pack_info"),
                     "had_tier1": match_result.group_tier.value == "tier1",
                     "count": 1,
                 }
@@ -334,6 +337,9 @@ def send_aggregated_alerts(pending_alerts):
 
                 if not existing["ep_info"] and alert["ep_info"]:
                     existing["ep_info"] = alert["ep_info"]
+
+                if not existing["pack_info"] and alert.get("pack_info"):
+                    existing["pack_info"] = alert.get("pack_info")
 
     show_seasons = {}
     for fkey, fdata in families.items():
@@ -382,47 +388,48 @@ def send_aggregated_alerts(pending_alerts):
 
         result = family_data["best_match"]
         ep_info = family_data["ep_info"]
+        pack_info = family_data.get("pack_info")
 
         if family_data["had_tier1"]:
-            had_tier1 = True
+           had_tier1 = True
 
         old_notifs = matcher._get_family_notifications(fkey)
         for notif in old_notifs:
-            chat_id = notif.get("chat_id", "")
-            msg_id = notif.get("message_id", 0)
-            if chat_id and msg_id:
-                notifier.delete_message(chat_id, msg_id)
+           chat_id = notif.get("chat_id", "")
+           msg_id = notif.get("message_id", 0)
+           if chat_id and msg_id:
+               notifier.delete_message(chat_id, msg_id)
 
         p = result.entry.parsed
         if p and p.season is not None and p.episode is not None:
-            _delete_previous_episode_alerts(p.clean_name, p.season, p.episode)
+           _delete_previous_episode_alerts(p.clean_name, p.season, p.episode)
 
         for suppressed_fkey in suppress_keys:
-            if suppressed_fkey.startswith(fkey.rsplit("|", 1)[0]):
-                old_suppressed = matcher._get_family_notifications(suppressed_fkey)
-                for notif in old_suppressed:
-                    chat_id = notif.get("chat_id", "")
-                    msg_id = notif.get("message_id", 0)
-                    if chat_id and msg_id:
-                        notifier.delete_message(chat_id, msg_id)
+           if suppressed_fkey.startswith(fkey.rsplit("|", 1)[0]):
+               old_suppressed = matcher._get_family_notifications(suppressed_fkey)
+               for notif in old_suppressed:
+                   chat_id = notif.get("chat_id", "")
+                   msg_id = notif.get("message_id", 0)
+                   if chat_id and msg_id:
+                       notifier.delete_message(chat_id, msg_id)
 
         if fkey in episode_summaries:
-            summary = episode_summaries[fkey]
-            ep_list = ", ".join(f"E{e:02d}" for e in summary["other_eps"])
-            result.matched_keywords.append(f"batch:{summary['total']} episodes (also {ep_list})")
+           summary = episode_summaries[fkey]
+           ep_list = ", ".join(f"E{e:02d}" for e in summary["other_eps"])
+           result.matched_keywords.append(f"batch:{summary['total']} episodes (also {ep_list})")
 
         if quiet.is_quiet():
-            quiet.queue_notification({
-                "title": result.entry.title,
-                "mode": result.profile_mode.value,
-                "tier": result.group_tier.value,
-                "profile": result.profile_name,
-            })
-            log.info(f"QUEUED: {result.entry.title[:80]}")
+           quiet.queue_notification({
+               "title": result.entry.title,
+               "mode": result.profile_mode.value,
+               "tier": result.group_tier.value,
+               "profile": result.profile_name,
+           })
+           log.info(f"QUEUED: {result.entry.title[:80]}")
         else:
-            notifier.send_match(result, ep_info)
-            sent_count += 1
-            time.sleep(0.1)
+           notifier.send_match(result, ep_info, pack_info)
+           sent_count += 1
+           time.sleep(0.1)
 
     return had_tier1, sent_count
 

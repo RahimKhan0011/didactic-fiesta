@@ -52,7 +52,7 @@ def _clean_audio(audio: str) -> str:
     return audio
 
 
-def send_match(result: MatchResult, episode_info=None):
+def send_match(result: MatchResult, episode_info=None, pack_info=None):
     prof = _find_profile(result.profile_name)
     use_tmdb = True
     if prof is not None:
@@ -94,8 +94,8 @@ def send_match(result: MatchResult, episode_info=None):
     result.variants = variants
 
     buttons = _build_buttons(result)
-    caption = _format_message(result, episode_info, caption_mode=True)
-    full_text = _format_message(result, episode_info, caption_mode=False)
+    caption = _format_message(result, episode_info, pack_info, caption_mode=True)
+    full_text = _format_message(result, episode_info, pack_info, caption_mode=False)
 
     for chat_id in config.CHAT_IDS:
         msg_id = 0
@@ -134,7 +134,7 @@ def delete_message(chat_id: str, message_id: int) -> bool:
         return False
 
 
-def _format_message(result: MatchResult, ep_info=None, caption_mode: bool = False) -> str:
+def _format_message(result: MatchResult, ep_info=None, pack_info=None, caption_mode: bool = False) -> str:
     e = result.entry
     p = e.parsed
     lines = []
@@ -196,6 +196,12 @@ def _format_message(result: MatchResult, ep_info=None, caption_mode: bool = Fals
         if ep_lines:
             lines.append("")
             lines.extend(ep_lines)
+
+    if pack_info:
+        pack_lines = _format_season_pack_info(pack_info)
+        if pack_lines:
+            lines.append("")
+            lines.extend(pack_lines)
 
     show_kw = [k for k in result.matched_keywords if str(k).startswith("show:")]
     movie_kw = [k for k in result.matched_keywords if str(k).startswith("movie:")]
@@ -437,6 +443,26 @@ def _format_episode_info(ep_info: dict) -> list[str]:
         miss = ", ".join(f"E{m:02d}" for m in ep_info["missing"])
         lines.append(f"❌ Missing S{ep_info['season']:02d}: {miss}")
 
+    return lines
+
+
+def _format_season_pack_info(pack_info: dict) -> list[str]:
+    lines = []
+
+    if pack_info.get("season") is not None:
+        season = pack_info["season"]
+        lines.append(f"🆕 Season: S{season:02d}")
+        
+        if pack_info.get("had_previous"):
+            prev_s = pack_info.get("prev_latest_s", 0)
+            if prev_s and prev_s < season:
+                lines.append(f"📺 Prev: S{prev_s:02d}")
+        
+        deleted = pack_info.get("deleted_count", 0)
+        if deleted > 0:
+            lines.append(f"🗑️ Removed {deleted} older season pack(s)")
+
+    return lines
     return lines
 
 
