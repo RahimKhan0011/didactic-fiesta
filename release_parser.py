@@ -29,7 +29,7 @@ AUDIO_PATTERNS = [
     "AAC2.0", "AAC2 0", "AAC5.1", "AAC 2 0", "AAC",
     "FLAC 5.1", "FLAC 2.0", "FLAC",
     "LPCM", "PCM",
-    "EAC-3",
+    "EAC3", "EAC-3",
     "AC3", "MP3", "DTS",
 ]
 
@@ -114,10 +114,11 @@ SOURCE_PATTERNS = [
     ("WEB", ["WEB"], "WEB"),
 ]
 
-GAME_CATS = ["PC", "Nintendo Switch", "PS5", "PS4", "Xbox", "Mac"]
+GAME_CATS = ["PC", "Nintendo Switch", "PS5", "PS4", "Xbox", "Mac", "Games", "PS", "Switch"]
 
 ANIME_GROUP_PATTERN = re.compile(
-    r'^\[([^\]]+)\]\s*(.+?)(?:\s*-\s*(\d+))?\s*(?:\((\d+p)\))?\s*(?:\[([A-F0-9]+)\])?$'
+    r'^\[([^\]]+)\]\s*(.+?)(?:\s*-\s*(\d+)(?:v(\d+))?)?\s*(?:\((\d+p)\))?\s*(?:\[([A-F0-9]+)\])?$',
+    re.IGNORECASE
 )
 
 ANIME_SXE_AFTER_DASH_PATTERN = re.compile(
@@ -139,7 +140,7 @@ DAILY_SHOW_DOT_PATTERN = re.compile(r'^(.+?)\.(\d{4})\.(\d{2})\.(\d{2})\.(.+?)(?
 HUNO_TITLE_PATTERN = re.compile(r'^(.+?)\s+\((\d{4})\)\s+\((\d{3,4}p\s.+)\)$')
 
 AR_PREFIX_PATTERN = re.compile(
-    r'^(?:Tv(?:Pack)?(?:UHD|HD|SD)?|Movie(?:UHD|HD|SD|4K)?|GamesPC|AppsPC|Music(?:HD|SD)?|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
+    r'^(?:Tv(?:Pack)?(?:UHD|HD|SD)?|Movie(?:UHD|HD|SD|4K)?|Games\w*|AppsPC|Music(?:HD|SD)?|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
     re.IGNORECASE
 )
 
@@ -154,14 +155,14 @@ LEADING_LANGUAGE_TAG_PATTERN = re.compile(
 )
 
 ANIME_TRAILING_EP_PATTERN = re.compile(
-    r'^(?P<name>.+?)(?:\s+\((?P<year>\d{4})\))?\s+(?P<episode>\d{1,4})(?:\s*\((?P<tech>[^)]*)\))?$',
+    r'^(?P<name>.+?)(?:\s+\((?P<year>\d{4})\))?\s+(?P<episode>\d{1,4})(?:v(?P<version>\d+))?(?:\s*\((?P<tech>[^)]*)\))?$',
     re.IGNORECASE,
 )
 
 ERAI_MAIN_PATTERN = re.compile(
     r'^(?P<name>.+?)'
     r'(?:\s+(?:(?P<season1>\d+)(?:st|nd|rd|th)\s+Season|Season\s+(?P<season2>\d+)|S(?P<season3>\d+)|Part\s+(?P<season4>\d+)))?'
-    r'\s*-\s*(?P<episode>\d+)'
+    r'\s*-\s*(?P<episode>\d+)(?:v(?P<version>\d+))?'
     r'(?:\s+\((?P<codec_hint>[^)]+)\))?\s+'
     r'\[(?P<res>\d+p)\s+(?P<service>[A-Z0-9+]+)\s+(?P<source>WEB-DL|WEBRip|WEB)\s+(?P<codec>AVC|HEVC|EAC-3|AAC)?\s*(?P<audio>[A-Z0-9.+-]*)\]',
     re.IGNORECASE
@@ -170,7 +171,7 @@ ERAI_MAIN_PATTERN = re.compile(
 ERAI_IPT_PATTERN = re.compile(
     r'^(?P<name>.+?)'
     r'(?:\s+(?:(?P<season1>\d+)(?:st|nd|rd|th)\s+Season|Season\s+(?P<season2>\d+)|S(?P<season3>\d+)|Part\s+(?P<season4>\d+)))?'
-    r'\s*-\s*(?P<episode>\d+)'
+    r'\s*-\s*(?P<episode>\d+)(?:v(?P<version>\d+))?'
     r'(?:\s+\((?P<codec_hint>[^)]+)\))?\s+'
     r'\[(?P<res>\d+p)\s+(?P<service>[A-Z0-9+]+)\s+(?P<source>WEB-DL|WEBRip|WEB)\s+(?P<codec>AVC|HEVC|EAC-3|AAC)?\s*(?P<audio>[A-Z0-9.+-]*)\]'
     r'(?:\[MultiSub\])?',
@@ -179,10 +180,16 @@ ERAI_IPT_PATTERN = re.compile(
 
 ERAI_PREFIX_CAPTURE_PATTERN = re.compile(r'^\[([^\]]+)\]\s*', re.IGNORECASE)
 
+ANIME_MOVIE_SUFFIX_PATTERN = re.compile(
+    r'\s*-\s*(Movie|Special(?: Episode)?|OVA|ONA|Movie or Special Episode)\s*$',
+    re.IGNORECASE,
+)
+
 
 def parse(title: str, category: str = "") -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
-    title_clean = title.strip()
+    raw_title = title.strip()
+    title_clean = raw_title
 
     title_clean = AR_PREFIX_PATTERN.sub("", title_clean).strip()
     title_clean = FL_TAG_PATTERN.sub("", title_clean).strip()
@@ -280,13 +287,14 @@ def parse(title: str, category: str = "") -> ParsedRelease:
 
     cat_lower = category.lower()
     group_lower = _extract_group(title_clean).lower()
+    is_ar_game = bool(re.match(r'^Games\w*\s+\d+\s+\d+\s+', raw_title, re.IGNORECASE))
 
     if group_lower in GAME_GROUPS:
         p = _parse_game(title_clean, category)
         _build_keys(p)
         return p
 
-    if any(g.lower() in cat_lower for g in GAME_CATS):
+    if any(g.lower() in cat_lower for g in GAME_CATS) or is_ar_game:
         p = _parse_game(title_clean, category)
         _build_keys(p)
         return p
@@ -336,6 +344,7 @@ def _try_erai_ipt(title: str) -> Optional[ParsedRelease]:
 
     return None
 
+
 def _build_erai_parsed(title: str, m, state: str, group_name: str = "Erai-raws") -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
     p.group = group_name
@@ -367,24 +376,37 @@ def _build_erai_parsed(title: str, m, state: str, group_name: str = "Erai-raws")
     else:
         p.source_family = source_raw
 
-    codec_hint = m.group("codec_hint") or ""
+    version = m.group("version") or ""
+    codec_hint = (m.group("codec_hint") or "").strip()
+
+    if not version:
+        vm = re.fullmatch(r'V(\d+)', codec_hint, re.IGNORECASE)
+        if vm:
+            version = vm.group(1)
+            codec_hint = ""
+
     if codec_hint.upper() not in ("HEVC", "AVC", "X265", "X264", "H264", "H265"):
         codec_hint = ""
 
     codec = m.group("codec") or codec_hint
     audio = m.group("audio") or ""
 
-    if codec.upper() == "EAC-3":
+    if codec.upper() in ("EAC-3", "EAC3"):
         p.audio = codec
         p.codec = ""
     else:
         p.codec = codec
         p.audio = audio
 
+    if version:
+        p.tags.append(f"v{version}")
+        p.is_repack = True
+
     if state:
         p.tags.append(state)
 
     return p
+
 
 def _build_erai_simple(title: str, m, state: str, group_name: str = "Erai-raws") -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
@@ -418,6 +440,7 @@ def _build_erai_simple(title: str, m, state: str, group_name: str = "Erai-raws")
         p.tags.append(state)
 
     return p
+
 
 def _detect_service(p: ParsedRelease, title: str):
     title_upper = title.upper().replace(".", " ").replace("-", " ").replace("_", " ")
@@ -482,6 +505,20 @@ def _extract_group(title: str) -> str:
     return ""
 
 
+def _get_release_revision(p: ParsedRelease) -> str:
+    for tag in p.tags:
+        m = re.fullmatch(r'v(\d+)', str(tag).strip(), re.IGNORECASE)
+        if m:
+            return f"v{m.group(1)}"
+
+    if p.is_repack:
+        return "repack"
+    if p.is_proper:
+        return "proper"
+
+    return ""
+
+
 def _build_keys(p: ParsedRelease):
     try:
         from config import resolve_alias
@@ -530,7 +567,8 @@ def _build_keys(p: ParsedRelease):
     cod = (p.codec or "").lower()
     aud = (p.audio or "").lower()
     hdr = (p.hdr or "").lower()
-    p.exact_key = f"{p.variant_key}|{cod}|{aud}|{hdr}|{grp}"
+    rev = _get_release_revision(p).lower()
+    p.exact_key = f"{p.variant_key}|{cod}|{aud}|{hdr}|{grp}|{rev}"
 
 
 def _parse_huno_title(title: str, match, category: str) -> ParsedRelease:
@@ -650,6 +688,7 @@ def _try_anime(title: str) -> Optional[ParsedRelease]:
     p.group = m.group(1)
     p.clean_name = m.group(2).strip().rstrip("-").strip()
     ep_str = m.group(3)
+    version = m.group(4)
 
     if not ep_str:
         trailing_ep = ANIME_TRAILING_EP_PATTERN.search(p.clean_name)
@@ -659,6 +698,8 @@ def _try_anime(title: str) -> Optional[ParsedRelease]:
             if year_str:
                 p.year = int(year_str)
             ep_str = trailing_ep.group("episode")
+            if not version:
+                version = trailing_ep.group("version")
             tech = trailing_ep.group("tech") or ""
             if not p.resolution:
                 p.resolution = _find_match(tech, RESOLUTIONS)
@@ -677,8 +718,12 @@ def _try_anime(title: str) -> Optional[ParsedRelease]:
             return None
         p.content_type = ContentType.ANIME_BATCH
 
-    if m.group(4):
-        p.resolution = m.group(4)
+    if m.group(5):
+        p.resolution = m.group(5)
+
+    if version:
+        p.tags.append(f"v{version}")
+        p.is_repack = True
 
     if p.group and p.group.lower() in ["erai-raws", "subsplease"]:
         if not p.source:
@@ -706,21 +751,30 @@ def _parse_game(title: str, category: str) -> ParsedRelease:
         p.content_type = ContentType.GAME_UPDATE
     else:
         p.content_type = ContentType.GAME
+
     p.group = _extract_group(title)
+
     vm = GAME_VERSION_PATTERN.search(title)
     if vm:
         p.game_version = vm.group(1)
+
     name = title
     if p.group:
         name = re.sub(r'-' + re.escape(p.group) + r'$', '', name)
     if p.game_version:
         name = name.replace(p.game_version, "")
-    for remove in ["Update", "Patch", "DLC", "Portable", "P2P", "NSW"]:
+
+    name = re.sub(r'\bP\s*S0?5\b', ' ', name, flags=re.IGNORECASE)
+    name = re.sub(r'\bP\s*S0?4\b', ' ', name, flags=re.IGNORECASE)
+
+    for remove in ["Update", "Patch", "DLC", "Portable", "P2P", "NSW", "PS5", "PS4", "Xbox", "Switch"]:
         name = re.sub(r'\b' + remove + r'\b', '', name, flags=re.IGNORECASE)
+
     name = re.sub(r'[\[\](){}]', ' ', name)
     name = re.sub(r'[-_.]', ' ', name)
     name = re.sub(r'\bv\s*$', '', name, flags=re.IGNORECASE)
     name = re.sub(r'\s+', ' ', name).strip()
+
     p.clean_name = name
     return p
 
@@ -800,8 +854,15 @@ def _parse_standard(title: str, category: str) -> ParsedRelease:
             p.year = yr
             name_part = name_part[:ym.start(1)].strip()
 
+    if p.group and name_part.startswith(f"[{p.group}]"):
+        name_part = name_part[len(p.group) + 2:].strip()
+
     name_part = re.sub(r'[._]', ' ', name_part)
     name_part = re.sub(r'\s+', ' ', name_part).strip()
+
+    cat_lower = category.lower()
+    if "anime" in cat_lower:
+        name_part = ANIME_MOVIE_SUFFIX_PATTERN.sub('', name_part).strip()
 
     aka_match = re.split(r'\s+AKA\s+', name_part, flags=re.IGNORECASE)
     if len(aka_match) > 1:

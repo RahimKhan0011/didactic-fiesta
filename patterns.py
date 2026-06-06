@@ -72,7 +72,7 @@ def recalculate_patterns():
 
     conn.commit()
     conn.close()
-    log.info(f"Recalculated patterns for tier1 groups")
+    log.info("Recalculated patterns for tier1 groups")
 
 
 def get_active_groups_now() -> list[str]:
