@@ -112,6 +112,13 @@ def match_entry(entry: TorrentEntry, parsed: ParsedRelease) -> list[MatchResult]
 
     if parsed.content_type in (ContentType.EPISODE, ContentType.ANIME_EP):
         if parsed.season is not None and parsed.episode is not None:
+            if db.season_pack_exists_any_or_later(parsed.clean_name, parsed.season):
+                log.debug(
+                    f"Season pack exists (same or later), skip episode: {parsed.clean_name} "
+                    f"S{parsed.season:02d}E{parsed.episode:02d}"
+                )
+                return "__PACK_SUPPRESSED__"
+
             latest_known = db.latest_episode_for_show_season(parsed.clean_name, parsed.season)
             if latest_known is not None and latest_known > parsed.episode:
                 log.debug(

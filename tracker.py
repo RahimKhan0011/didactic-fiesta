@@ -2,6 +2,7 @@ import re
 import time
 import logging
 import sqlite3
+
 from models import ParsedRelease, TorrentEntry, EpisodeRecord, ContentType
 import db
 import config
@@ -10,7 +11,6 @@ log = logging.getLogger("tracker")
 
 
 def init_tracked_shows():
-    import re
     watchlists = config.get_watchlists()
     for key, items in watchlists.items():
         if "shows" not in key.lower():
@@ -62,10 +62,48 @@ def process_episode(entry: TorrentEntry, parsed: ParsedRelease) -> dict | None:
         "prev_latest_e": matched_show.latest_episode,
         "is_new_episode": (
             parsed.season > matched_show.latest_season or
-            (parsed.season == matched_show.latest_season and
-             parsed.episode > matched_show.latest_episode)
+            (
+                parsed.season == matched_show.latest_season
+                and parsed.episode > matched_show.latest_episode
+            )
         ),
         "missing": missing,
+    }
+
+
+def process_season_pack(entry: TorrentEntry, parsed: ParsedRelease) -> dict | None:
+    if parsed.content_type != ContentType.SEASON_PACK:
+        return None
+    if not parsed.clean_name or parsed.season is None:
+        return None
+
+    show_name = parsed.clean_name.strip()
+
+    older_packs = db.get_older_season_packs(show_name, parsed.season, entry.torrent_id)
+    older_pack_ids = [pk.get("torrent_id") for pk in older_packs if pk.get("torrent_id")]
+    older_notifications = db.get_notifications_for_torrent_ids(older_pack_ids)
+
+    deleted_count = 0
+    if older_pack_ids:
+        deleted_count = db.delete_older_season_packs(show_name, parsed.season, entry.torrent_id)
+        if deleted_count > 0:
+            log.info(f"Deleted {deleted_count} older season pack(s) for {show_name}")
+
+    previous_seasons = []
+    for pk in older_packs:
+        s = pk.get("parsed_season")
+        if s is not None:
+            previous_seasons.append(int(s))
+
+    previous_seasons = sorted(set(previous_seasons))
+
+    return {
+        "show": show_name,
+        "season": parsed.season,
+        "had_previous": len(older_packs) > 0,
+        "deleted_count": deleted_count,
+        "deleted_notifications": older_notifications,
+        "previous_seasons": previous_seasons,
     }
 
 
@@ -76,7 +114,9 @@ def backfill_episodes(show_name: str) -> int:
         SELECT torrent_id, parsed_name, parsed_season, parsed_episode,
                parsed_group, parsed_res
         FROM torrents
-        WHERE parsed_name LIKE ? AND parsed_season IS NOT NULL AND parsed_episode IS NOT NULL
+        WHERE parsed_name LIKE ?
+          AND parsed_season IS NOT NULL
+          AND parsed_episode IS NOT NULL
         ORDER BY parsed_season, parsed_episode
     """, (f"%{show_name}%",)).fetchall()
     conn.close()
@@ -111,11 +151,11 @@ def find_missing_episodes(show_name: str, season: int) -> list[int]:
 
 
 def add_show(name: str, tmdb_id: int | None = None) -> str:
-    import sqlite3
     conn = sqlite3.connect(str(config.DB_MAIN))
     conn.row_factory = sqlite3.Row
     row = conn.execute(
-        "SELECT * FROM show_tracker WHERE show_name=? COLLATE NOCASE", (name,)
+        "SELECT * FROM show_tracker WHERE show_name=? COLLATE NOCASE",
+        (name,)
     ).fetchone()
 
     if row:
@@ -147,7 +187,10 @@ def remove_show(name: str) -> str:
     if not existing:
         return f"Not tracking: {name}"
     conn = sqlite3.connect(str(config.DB_MAIN))
-    conn.execute("UPDATE show_tracker SET active=0 WHERE show_name=? COLLATE NOCASE", (name,))
+    conn.execute(
+        "UPDATE show_tracker SET active=0 WHERE show_name=? COLLATE NOCASE",
+        (name,)
+    )
     conn.commit()
     conn.close()
     return f"Stopped tracking: {name}"
@@ -157,6 +200,7 @@ def get_show_status(name: str) -> str:
     show = db.get_show_tracker(name)
     if not show:
         return f"Not tracking: {name}\nUse /track {name}"
+
     episodes = db.get_show_episodes(name)
     if not episodes:
         count = backfill_episodes(name)
@@ -182,4 +226,5 @@ def get_show_status(name: str) -> str:
             miss_str = ", ".join(f"E{m:02d}" for m in missing)
             line += f"\n  ❌ Missing: {miss_str}"
         lines.append(line)
+
     return "\n".join(lines)

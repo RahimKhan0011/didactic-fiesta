@@ -455,6 +455,42 @@ def get_notification_for_release(parsed_name: str, group: str, resolution: str, 
     return results
 
 
+def get_notifications_for_torrent_ids(torrent_ids: list[int]) -> list[dict]:
+    if not torrent_ids:
+        return []
+
+    seen_ids = set()
+    unique_ids = []
+    for tid in torrent_ids:
+        if not tid:
+            continue
+        tid = int(tid)
+        if tid in seen_ids:
+            continue
+        seen_ids.add(tid)
+        unique_ids.append(tid)
+
+    if not unique_ids:
+        return []
+
+    placeholders = ",".join("?" for _ in unique_ids)
+
+    conn = _connect(DB_HISTORY)
+    rows = conn.execute(
+        f"""
+        SELECT torrent_id, chat_id, message_id, sent_at
+        FROM notifications
+        WHERE torrent_id IN ({placeholders})
+          AND message_id IS NOT NULL
+          AND message_id != 0
+        ORDER BY sent_at DESC
+        """,
+        unique_ids,
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def update_torrent_tmdb(torrent_id: int, tmdb_id: int, imdb_id: str, poster: str):
     conn = _connect(DB_MAIN)
     conn.execute(
@@ -639,6 +675,69 @@ def season_pack_exists(name: str, season: int, resolution: str) -> bool:
     conn.close()
     return row is not None
 
+def season_pack_exists_any(name: str, season: int) -> bool:
+    if not name or season is None:
+        return False
+    conn = _connect(DB_MAIN)
+    row = conn.execute("""
+        SELECT 1 FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season = ?
+          AND content_type = 'season_pack'
+        LIMIT 1
+    """, (name, season)).fetchone()
+    conn.close()
+    return row is not None
+
+def season_pack_exists_any_or_later(name: str, season: int) -> bool:
+    if not name or season is None:
+        return False
+    conn = _connect(DB_MAIN)
+    row = conn.execute("""
+        SELECT 1 FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season >= ?
+          AND content_type = 'season_pack'
+        LIMIT 1
+    """, (name, season)).fetchone()
+    conn.close()
+    return row is not None
+
+def get_older_season_packs(name: str, season: int, exclude_id: int = 0) -> list[dict]:
+    """Get season packs for the same show with lower season numbers."""
+    if not name or season is None:
+        return []
+    conn = _connect(DB_MAIN)
+    rows = conn.execute("""
+        SELECT torrent_id, parsed_season, parsed_res, first_seen
+        FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season < ?
+          AND content_type = 'season_pack'
+          AND torrent_id != ?
+        ORDER BY parsed_season DESC
+    """, (name, season, exclude_id)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_older_season_packs(name: str, season: int, exclude_id: int = 0) -> int:
+    """Delete season packs for the same show with lower season numbers."""
+    if not name or season is None:
+        return 0
+    conn = _connect(DB_MAIN)
+    cursor = conn.execute("""
+        DELETE FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season < ?
+          AND content_type = 'season_pack'
+          AND torrent_id != ?
+    """, (name, season, exclude_id))
+    deleted_count = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted_count
+
 def log_upload(group: str, category: str, content_type: str, pub_ts: float):
     from datetime import datetime, timezone
     dt = datetime.fromtimestamp(pub_ts, tz=timezone.utc)
@@ -668,6 +767,24 @@ def latest_episode_for_show_season(name: str, season: int) -> int | None:
         return None
     return row["max_ep"]
 
+def get_previous_episodes(name: str, season: int, current_episode: int, limit: int = 2) -> list[int]:
+    if not name or season is None or current_episode is None:
+        return []
+
+    conn = _connect(DB_MAIN)
+    rows = conn.execute("""
+        SELECT DISTINCT parsed_episode
+        FROM torrents
+        WHERE parsed_name = ? COLLATE NOCASE
+          AND parsed_season = ?
+          AND parsed_episode IS NOT NULL
+          AND parsed_episode < ?
+        ORDER BY parsed_episode DESC
+        LIMIT ?
+    """, (name, season, current_episode, limit)).fetchall()
+    conn.close()
+
+    return [int(r["parsed_episode"]) for r in rows if r["parsed_episode"] is not None]
 
 def cleanup_old_data(days: int = 30):
     cutoff = time.time() - (days * 86400)

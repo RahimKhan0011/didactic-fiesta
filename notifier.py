@@ -52,11 +52,9 @@ def _clean_audio(audio: str) -> str:
     return audio
 
 
-def send_match(result: MatchResult, episode_info=None):
+def send_match(result: MatchResult, episode_info=None, pack_info=None):
     prof = _find_profile(result.profile_name)
-    use_tmdb = True
-    if prof is not None:
-        use_tmdb = prof.get("tmdb", True)
+    use_tmdb = prof.get("tmdb", False) if prof else False
 
     if use_tmdb and result.entry.parsed:
         p = result.entry.parsed
@@ -94,18 +92,19 @@ def send_match(result: MatchResult, episode_info=None):
     result.variants = variants
 
     buttons = _build_buttons(result)
-    caption = _format_message(result, episode_info, caption_mode=True)
-    full_text = _format_message(result, episode_info, caption_mode=False)
 
     for chat_id in config.CHAT_IDS:
         msg_id = 0
 
         if result.poster_url:
+            caption = _format_message(result, episode_info, pack_info, caption_mode=True)
             msg_id = _send_photo(chat_id, result.poster_url, caption, buttons)
             if not msg_id:
-                msg_id = _send_text(chat_id, full_text, buttons)
+                text = _format_message(result, episode_info, pack_info, caption_mode=False)
+                msg_id = _send_text(chat_id, text, buttons)
         else:
-            msg_id = _send_text(chat_id, full_text, buttons)
+            text = _format_message(result, episode_info, pack_info, caption_mode=False)
+            msg_id = _send_text(chat_id, text, buttons)
 
         if msg_id:
             db.log_notification(result.entry.torrent_id, result.profile_name, chat_id, msg_id)
@@ -116,7 +115,6 @@ def send_match(result: MatchResult, episode_info=None):
             _pin_message(chat_id, msg_id)
 
     db.mark_notified(result.entry.torrent_id, result.profile_name)
-
 
 def send_raw(text: str, buttons=None):
     for chat_id in config.CHAT_IDS:
@@ -134,7 +132,7 @@ def delete_message(chat_id: str, message_id: int) -> bool:
         return False
 
 
-def _format_message(result: MatchResult, ep_info=None, caption_mode: bool = False) -> str:
+def _format_message(result: MatchResult, ep_info=None, pack_info=None, caption_mode: bool = False) -> str:
     e = result.entry
     p = e.parsed
     lines = []
@@ -196,6 +194,22 @@ def _format_message(result: MatchResult, ep_info=None, caption_mode: bool = Fals
         if ep_lines:
             lines.append("")
             lines.extend(ep_lines)
+    elif p and p.content_type in (ContentType.EPISODE, ContentType.ANIME_EP):
+        if p.season is not None and p.episode is not None:
+            prev_eps = db.get_previous_episodes(p.clean_name, p.season, p.episode, limit=2)
+            if prev_eps:
+                prev_list = ", ".join(f"E{ep:02d}" for ep in prev_eps)
+                lines.append("")
+                lines.append(f"📺 Previous available: {prev_list}")
+
+    if pack_info:
+        if pack_info.get("season") is not None:
+            lines.append(f"📦 Season Pack: S{int(pack_info['season']):02d}")
+
+        prev = pack_info.get("previous_seasons") or []
+        if prev:
+            prev_str = ", ".join(f"S{int(s):02d}" for s in prev)
+            lines.append(f"📚 Previous season packs: {prev_str}")
 
     show_kw = [k for k in result.matched_keywords if str(k).startswith("show:")]
     movie_kw = [k for k in result.matched_keywords if str(k).startswith("movie:")]
@@ -215,6 +229,7 @@ def _format_message(result: MatchResult, ep_info=None, caption_mode: bool = Fals
             lines.append(f"📦 Season Pack: {kw.replace('season_pack:', '')}")
         elif kw.startswith("batch:"):
             lines.append(f"📦 {kw.replace('batch:', '')}")
+
     text = "\n".join(lines)
 
     if caption_mode and len(text) > 1024:
@@ -223,7 +238,6 @@ def _format_message(result: MatchResult, ep_info=None, caption_mode: bool = Fals
         text = text[:4090].rsplit("\n", 1)[0] + "..."
 
     return text
-
 
 def _build_family_title(p: ParsedRelease, e: TorrentEntry) -> str:
     if not p:
@@ -437,6 +451,26 @@ def _format_episode_info(ep_info: dict) -> list[str]:
         miss = ", ".join(f"E{m:02d}" for m in ep_info["missing"])
         lines.append(f"❌ Missing S{ep_info['season']:02d}: {miss}")
 
+    return lines
+
+
+def _format_season_pack_info(pack_info: dict) -> list[str]:
+    lines = []
+
+    if pack_info.get("season") is not None:
+        season = pack_info["season"]
+        lines.append(f"🆕 Season: S{season:02d}")
+        
+        if pack_info.get("had_previous"):
+            prev_s = pack_info.get("prev_latest_s", 0)
+            if prev_s and prev_s < season:
+                lines.append(f"📺 Prev: S{prev_s:02d}")
+        
+        deleted = pack_info.get("deleted_count", 0)
+        if deleted > 0:
+            lines.append(f"🗑️ Removed {deleted} older season pack(s)")
+
+    return lines
     return lines
 
 
