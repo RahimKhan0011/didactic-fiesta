@@ -277,6 +277,8 @@ def process_new_entry(entry):
     matches = matcher.match_entry(entry, parsed)
     if matches == "__OLDER_SKIPPED__":
         return "__OLDER_SKIPPED__"
+    if matches == "__PACK_SUPPRESSED__":
+        return None
     if not matches:
         return None
 

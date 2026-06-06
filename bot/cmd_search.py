@@ -21,6 +21,19 @@ def _recent(args: str) -> str:
         lines.append(f"\n...+{len(torrents)-30} more")
     return "\n".join(lines)
 
+def _fmt_age(ts: float) -> str:
+    from datetime import datetime, timezone
+    age = time.time() - ts
+    dt = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
+    d = int(age // 86400)
+    h = int((age % 86400) // 3600)
+    m = int((age % 3600) // 60)
+    if d > 0:
+        return f"{dt} UTC  ({d}d {h}h ago)"
+    elif h > 0:
+        return f"{dt} UTC  ({h}h {m}m ago)"
+    else:
+        return f"{dt} UTC  ({m}m ago)"
 
 def _search(args: str) -> str:
     if not args:
@@ -206,14 +219,10 @@ def _get(args: str):
 
     lines.append(f"👥 S:{row['seeders']} L:{row['leechers']}")
 
+    if row["first_seen"]:
+        lines.append(f"🕐 Added: {_fmt_age(row['first_seen'])}")
     if row["pub_timestamp"]:
-        age = time.time() - row["pub_timestamp"]
-        if age < 3600:
-            lines.append(f"⏱ {int(age/60)}m ago")
-        elif age < 86400:
-            lines.append(f"🕐 {int(age/3600)}h ago")
-        else:
-            lines.append(f"📅 {int(age/86400)}d ago")
+        lines.append(f"📡 Published: {_fmt_age(row['pub_timestamp'])}")
 
     if row["parsed_season"] is not None:
         ep = f"S{row['parsed_season']:02d}"

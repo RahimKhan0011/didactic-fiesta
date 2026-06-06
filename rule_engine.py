@@ -127,6 +127,9 @@ def _eval_token(expr: str, entry: TorrentEntry, parsed: ParsedRelease, tier: Gro
         return False
 
     if token == "season_pack":
+        if parsed.content_type in (ContentType.EPISODE, ContentType.ANIME_EP):
+            return False
+
         if parsed.content_type == ContentType.SEASON_PACK:
             season_str = f"S{parsed.season:02d}" if parsed.season is not None else "full"
             matched.append(f"season_pack:{season_str}")
@@ -140,8 +143,10 @@ def _eval_token(expr: str, entry: TorrentEntry, parsed: ParsedRelease, tier: Gro
             matched.append(f"season_pack:S{parsed.season:02d}")
             return True
 
+        title_lower_check = (entry.title or "").lower()
         pack_keywords = ["complete", "season pack", "boxset", "duology", "trilogy", "full season"]
-        if any(kw in title_lower for kw in pack_keywords):
+
+        if any(kw in title_lower_check for kw in pack_keywords):
             matched.append("season_pack:detected")
             return True
 
