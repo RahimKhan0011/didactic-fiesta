@@ -1,4 +1,5 @@
 import re
+import time
 import logging
 from email.utils import parsedate_to_datetime
 
@@ -42,12 +43,27 @@ IPT_DESC_PATTERN = re.compile(
 
 
 def fetch_feed(url: str, feed_name: str = "", tracker: str = "tl") -> list[TorrentEntry]:
+    start = time.time()
+
     if tracker == "huno":
-        return _fetch_huno(url, feed_name)
+        entries = _fetch_huno(url, feed_name)
+        took = time.time() - start
+        if took >= 5:
+            log.warning(f"Slow feed [{feed_name}] took {took:.1f}s ({len(entries)} items)")
+        return entries
 
     entries = []
     try:
-        feed = feedparser.parse(url)
+        r = requests.get(
+            url,
+            timeout=(5, 10),
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if r.status_code != 200:
+            log.error(f"Feed HTTP error [{feed_name}]: {r.status_code}")
+            return entries
+
+        feed = feedparser.parse(r.content)
     except Exception as e:
         log.error(f"Feed fetch failed [{feed_name}]: {e}")
         return entries
@@ -80,9 +96,11 @@ def fetch_feed(url: str, feed_name: str = "", tracker: str = "tl") -> list[Torre
             seen_ids.add(e.torrent_id)
             deduped.append(e)
 
-    log.debug(f"Fetched {len(deduped)} from {feed_name}")
-    return deduped
+    took = time.time() - start
+    if took >= 5:
+        log.warning(f"Slow feed [{feed_name}] took {took:.1f}s ({len(deduped)} items)")
 
+    return deduped
 
 def _parse_tl(item: dict, feed_name: str) -> TorrentEntry | None:
     guid = item.get("guid", item.get("id", ""))

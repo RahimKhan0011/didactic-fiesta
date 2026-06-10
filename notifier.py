@@ -528,7 +528,7 @@ def _get_next_ep_compact(result: MatchResult, p: ParsedRelease) -> str:
         return ""
 
     current_s = p.season or 0
-    current_e = p.episode or 0
+    current_e = p.episode if p.episode is not None else -1
 
     if next_ep.get("next_air_date"):
         next_s = next_ep.get("next_season", 0)
@@ -544,14 +544,9 @@ def _get_next_ep_compact(result: MatchResult, p: ParsedRelease) -> str:
                 diff = (air - now).days
                 ep_label = f"S{next_s:02d}E{next_e:02d}"
 
-                if next_e > current_e + 1 or next_s > current_s:
-                    latest_str = f"Latest: {ep_label}"
-                else:
-                    latest_str = ""
-
                 if diff < 0:
-                    if latest_str:
-                        return f"📅 {ep_label} already aired | This is E{current_e:02d}"
+                    if p.episode is not None:
+                        return f"📅 {ep_label} already aired | This is E{p.episode:02d}"
                     return f"📅 {ep_label} already aired"
                 elif diff == 0:
                     return f"📅 {ep_label} airs TODAY"

@@ -355,6 +355,7 @@ def cleanup_expired_notifications():
 
 
 def send_aggregated_alerts(pending_alerts):
+    from models import ContentType
     families = {}
 
     for alert in pending_alerts:
@@ -440,6 +441,34 @@ def send_aggregated_alerts(pending_alerts):
             "other_eps": other_eps,
             "total": len(episodes),
         }
+    pack_shows = {}
+
+    for fkey, fdata in families.items():
+        p = fdata["best_match"].entry.parsed
+        if not p:
+            continue
+        if p.content_type != ContentType.SEASON_PACK:
+            continue
+        if p.season is None:
+            continue
+
+        if p.family_key and p.family_key.endswith("|pack"):
+            show_key = p.family_key.rsplit("|", 2)[0]
+        else:
+            show_key = (p.clean_name or "").lower()
+
+        if show_key not in pack_shows:
+            pack_shows[show_key] = []
+        pack_shows[show_key].append((fkey, p.season, fdata))
+
+    for show_key, packs in pack_shows.items():
+        if len(packs) <= 1:
+            continue
+
+        packs.sort(key=lambda x: x[1], reverse=True)
+
+        for fkey, season_num, fdata in packs[1:]:
+            suppress_keys.add(fkey)
 
     had_tier1 = False
     sent_count = 0
