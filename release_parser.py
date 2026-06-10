@@ -131,6 +131,7 @@ ANIME_S_AFTER_NAME_DASH_EP_PATTERN = re.compile(
 )
 
 SEASON_EP_PATTERN = re.compile(r'S(\d{1,3})(?:E(\d{1,3})(?:-?E?(\d{1,3}))?)?', re.IGNORECASE)
+EP_ONLY_PATTERN = re.compile(r'\bE(\d{1,4})(?:-?E?(\d{1,4}))?\b', re.IGNORECASE)
 YEAR_PATTERN = re.compile(r'(?:^|[\s.(])(\d{4})(?:[\s.)]|$)')
 GAME_VERSION_PATTERN = re.compile(r'[Vv]?(\d+(?:\.\d+)+)')
 SPORTS_PATTERN = re.compile(r'(?:MLB|NFL|NBA|NHL|UFC|WWE|F1|MotoGP|Boxing)\s+\d{4}', re.IGNORECASE)
@@ -784,7 +785,6 @@ def _parse_game(title: str, category: str) -> ParsedRelease:
     p.clean_name = name
     return p
 
-
 def _parse_standard(title: str, category: str) -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
 
@@ -805,7 +805,10 @@ def _parse_standard(title: str, category: str) -> ParsedRelease:
 
     part_match = re.search(r'\bPart\s+(\d+)\b', clean_title, re.IGNORECASE)
 
+    name_part = clean_title
     se = SEASON_EP_PATTERN.search(clean_title)
+    ep_only = None
+
     if se:
         p.season = int(se.group(1))
         if se.group(2):
@@ -816,32 +819,48 @@ def _parse_standard(title: str, category: str) -> ParsedRelease:
         else:
             p.content_type = ContentType.SEASON_PACK
         name_part = clean_title[:se.start()]
-    elif "COMPLETE" in clean_title.upper():
-        p.content_type = ContentType.COMPLETE
-        name_part = re.split(r'COMPLETE', clean_title, flags=re.IGNORECASE)[0]
-    elif "DUOLOGY" in clean_title.upper() or "TRILOGY" in clean_title.upper():
-        p.content_type = ContentType.BOXSET
-        name_part = re.split(r'(?:DUOLOGY|TRILOGY)', clean_title, flags=re.IGNORECASE)[0]
+
     else:
-        first_marker = len(clean_title)
-        for marker in [p.resolution, p.source, p.codec, p.hdr]:
-            if marker:
-                idx = clean_title.lower().find(marker.lower())
-                if idx != -1 and idx < first_marker:
-                    first_marker = idx
-        name_part = clean_title[:first_marker]
-
         cat_lower = category.lower()
-        group_lower = (p.group or "").lower()
 
-        if group_lower in GAME_GROUPS:
-            p.content_type = ContentType.GAME
-        elif any(kw in cat_lower for kw in ["episode", "tv", "show", "seriale"]):
+        if any(kw in cat_lower for kw in ["episode", "tv", "show", "seriale", "anime"]):
+            ep_only = EP_ONLY_PATTERN.search(clean_title)
+
+        if ep_only:
+            p.season = 1
+            p.episode = int(ep_only.group(1))
+            if ep_only.group(2):
+                p.episode_end = int(ep_only.group(2))
             p.content_type = ContentType.EPISODE
-        elif any(kw in cat_lower for kw in ["game", "pc", "nintendo", "ps5", "xbox"]):
-            p.content_type = ContentType.GAME
+            name_part = clean_title[:ep_only.start()]
+
+        elif "COMPLETE" in clean_title.upper():
+            p.content_type = ContentType.COMPLETE
+            name_part = re.split(r'COMPLETE', clean_title, flags=re.IGNORECASE)[0]
+
+        elif "DUOLOGY" in clean_title.upper() or "TRILOGY" in clean_title.upper():
+            p.content_type = ContentType.BOXSET
+            name_part = re.split(r'(?:DUOLOGY|TRILOGY)', clean_title, flags=re.IGNORECASE)[0]
+
         else:
-            p.content_type = ContentType.MOVIE
+            first_marker = len(clean_title)
+            for marker in [p.resolution, p.source, p.codec, p.hdr]:
+                if marker:
+                    idx = clean_title.lower().find(marker.lower())
+                    if idx != -1 and idx < first_marker:
+                        first_marker = idx
+            name_part = clean_title[:first_marker]
+
+            group_lower = (p.group or "").lower()
+
+            if group_lower in GAME_GROUPS:
+                p.content_type = ContentType.GAME
+            elif any(kw in cat_lower for kw in ["episode", "tv", "show", "seriale"]):
+                p.content_type = ContentType.EPISODE
+            elif any(kw in cat_lower for kw in ["game", "pc", "nintendo", "ps5", "xbox"]):
+                p.content_type = ContentType.GAME
+            else:
+                p.content_type = ContentType.MOVIE
 
     if part_match and p.season is None:
         cat_lower = category.lower()
