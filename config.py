@@ -29,6 +29,8 @@ LOG_LEVEL = _env("LOG_LEVEL", "INFO").upper()
 BASE_INTERVAL = int(_env("BASE_INTERVAL", "60"))
 TIMEZONE = _env("TIMEZONE", "UTC")
 STARTUP_LOOKBACK = int(_env("STARTUP_LOOKBACK", "600"))
+AUTO_DELETE_NOTIFICATIONS = os.getenv("AUTO_DELETE_NOTIFICATIONS", "false").lower() in ("true", "1", "yes")
+AUTO_DELETE_HOURS = int(os.getenv("AUTO_DELETE_HOURS", "24"))
 
 _cache = {}
 

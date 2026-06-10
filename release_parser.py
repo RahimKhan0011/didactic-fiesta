@@ -11,7 +11,6 @@ CODECS = [
     "h265", "h264",
     "HEVC", "AVC", "XviD", "AV1", "VP9",
     "MPEG-2", "VC-1",
-    "10bit", "10Bit",
 ]
 
 AUDIO_PATTERNS = [
@@ -135,8 +134,8 @@ SEASON_EP_PATTERN = re.compile(r'S(\d{1,3})(?:E(\d{1,3})(?:-?E?(\d{1,3}))?)?', r
 YEAR_PATTERN = re.compile(r'(?:^|[\s.(])(\d{4})(?:[\s.)]|$)')
 GAME_VERSION_PATTERN = re.compile(r'[Vv]?(\d+(?:\.\d+)+)')
 SPORTS_PATTERN = re.compile(r'(?:MLB|NFL|NBA|NHL|UFC|WWE|F1|MotoGP|Boxing)\s+\d{4}', re.IGNORECASE)
-DAILY_SHOW_PATTERN = re.compile(r'^(.+?)\s+(\d{4})\s+(\d{2})\s+(\d{2})\s+(.+?)(?:\s+\d+p)', re.IGNORECASE)
-DAILY_SHOW_DOT_PATTERN = re.compile(r'^(.+?)\.(\d{4})\.(\d{2})\.(\d{2})\.(.+?)(?:\.\d+p)', re.IGNORECASE)
+DAILY_SHOW_PATTERN = re.compile(r'^(.+?)\s+(\d{4})\s+(\d{2})\s+(\d{2})(?:\s+(.+?))?\s+\d+p', re.IGNORECASE)
+DAILY_SHOW_DOT_PATTERN = re.compile(r'^(.+?)\.(\d{4})\.(\d{2})\.(\d{2})(?:\.(.+?))?\.\d+p', re.IGNORECASE)
 HUNO_TITLE_PATTERN = re.compile(r'^(.+?)\s+\((\d{4})\)\s+\((\d{3,4}p\s.+)\)$')
 
 AR_PREFIX_PATTERN = re.compile(
@@ -150,7 +149,7 @@ ERAI_PREFIX_PATTERN = re.compile(r'^\[(?:Torrent|Erai-raws)\]\s*', re.IGNORECASE
 ERAI_STATE_PATTERN = re.compile(r'\[(Airing|Encoded)\]\s*$', re.IGNORECASE)
 
 LEADING_LANGUAGE_TAG_PATTERN = re.compile(
-    r'^\[(?:English|Turkish|Japanese|Korean|Chinese|Hindi|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi)\]\s*',
+    r'^\[(?:(?:English|Turkish|Japanese|Korean|Chinese|Hindi|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi)\s*)+\]\s*',
     re.IGNORECASE,
 )
 
@@ -212,7 +211,7 @@ def parse(title: str, category: str = "") -> ParsedRelease:
         title_clean = stripped
 
     title_clean = re.sub(
-        r'\[(?:English|Japanese|Multi)\s*(?:Dub|Sub|Audio|Dubbed|Subbed)?\]',
+        r'\[(?:(?:English|Japanese|Korean|Chinese|Hindi|Turkish|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi)\s*)+(?:Dub|Sub|Audio|Dubbed|Subbed)?\]',
         '',
         title_clean,
         flags=re.IGNORECASE,
@@ -528,6 +527,14 @@ def _build_keys(p: ParsedRelease):
         name = (p.clean_name or "").lower().strip()
 
     res = (p.resolution or "").lower()
+    media_id = ""
+
+    if hasattr(p, '_tmdb_id') and p._tmdb_id:
+        media_id = f"tmdb:{p._tmdb_id}"
+    elif hasattr(p, '_tvdb_id') and p._tvdb_id:
+        media_id = f"tvdb:{p._tvdb_id}"
+
+    anchor = media_id if media_id else name
 
     if p.content_type in (ContentType.EPISODE, ContentType.ANIME_EP):
         if p.date_key:
@@ -543,21 +550,21 @@ def _build_keys(p: ParsedRelease):
             ep_id = str(p.year)
         else:
             ep_id = ""
-        p.family_key = f"{name}|{ep_id}"
+        p.family_key = f"{anchor}|{ep_id}"
 
     elif p.content_type == ContentType.SEASON_PACK:
         s = f"s{p.season:02d}" if p.season is not None else ""
-        p.family_key = f"{name}|{s}|pack"
+        p.family_key = f"{anchor}|{s}|pack"
 
     elif p.content_type == ContentType.MOVIE:
         yr = str(p.year) if p.year else ""
-        p.family_key = f"{name}|{yr}"
+        p.family_key = f"{anchor}|{yr}"
 
     elif p.content_type in (ContentType.GAME, ContentType.GAME_UPDATE):
         p.family_key = f"{name}|game"
 
     else:
-        p.family_key = f"{name}|{res}"
+        p.family_key = f"{anchor}|{res}"
 
     src = (p.source_family or p.source or "").lower()
     svc = (p.service_code or "").lower()
@@ -569,7 +576,6 @@ def _build_keys(p: ParsedRelease):
     hdr = (p.hdr or "").lower()
     rev = _get_release_revision(p).lower()
     p.exact_key = f"{p.variant_key}|{cod}|{aud}|{hdr}|{grp}|{rev}"
-
 
 def _parse_huno_title(title: str, match, category: str) -> ParsedRelease:
     name_part = match.group(1).strip()

@@ -56,7 +56,8 @@ class ParsedRelease:
     variant_key: str = ""
     exact_key: str = ""
     date_key: str = ""
-
+    _tmdb_id: int = 0
+    _tvdb_id: int = 0
 
 @dataclass
 class TorrentEntry:

@@ -90,29 +90,31 @@ def _normalize_family_by_tmdb(entry, parsed):
         return
 
     if entry.tmdb_id:
+        parsed._tmdb_id = entry.tmdb_id
         canonical = _get_canonical_name_by_tmdb(entry.tmdb_id)
         if canonical and canonical.lower() != parsed.clean_name.lower():
             parsed.clean_name = canonical
-            parsed.family_key = ""
-            parsed.variant_key = ""
-            parsed.exact_key = ""
-            parser._build_keys(parsed)
-            return
+        parsed.family_key = ""
+        parsed.variant_key = ""
+        parsed.exact_key = ""
+        parser._build_keys(parsed)
+        return
 
     if entry.imdb_id:
         try:
             import tmdb as tmdb_mod
             data = tmdb_mod.lookup_by_imdb(entry.imdb_id)
-            if data and data.get("title"):
-                canonical = data["title"]
-                if canonical.lower() != parsed.clean_name.lower():
+            if data and data.get("tmdb_id"):
+                entry.tmdb_id = data["tmdb_id"]
+                parsed._tmdb_id = data["tmdb_id"]
+                canonical = data.get("title", "")
+                if canonical and canonical.lower() != parsed.clean_name.lower():
                     parsed.clean_name = canonical
-                    entry.tmdb_id = data.get("tmdb_id", 0)
-                    parsed.family_key = ""
-                    parsed.variant_key = ""
-                    parsed.exact_key = ""
-                    parser._build_keys(parsed)
-                    return
+                parsed.family_key = ""
+                parsed.variant_key = ""
+                parsed.exact_key = ""
+                parser._build_keys(parsed)
+                return
         except Exception:
             pass
 
@@ -133,17 +135,20 @@ def _normalize_family_by_tmdb(entry, parsed):
 
         if data and data.get("tmdb_id"):
             tmdb_id = data["tmdb_id"]
+            entry.tmdb_id = tmdb_id
+            parsed._tmdb_id = tmdb_id
+
             canonical = _get_canonical_name_by_tmdb(tmdb_id)
+            if not canonical:
+                canonical = data.get("title", "")
 
             if canonical and canonical.lower() != parsed.clean_name.lower():
                 parsed.clean_name = canonical
-                entry.tmdb_id = tmdb_id
-                parsed.family_key = ""
-                parsed.variant_key = ""
-                parsed.exact_key = ""
-                parser._build_keys(parsed)
-            elif not canonical:
-                entry.tmdb_id = tmdb_id
+
+            parsed.family_key = ""
+            parsed.variant_key = ""
+            parsed.exact_key = ""
+            parser._build_keys(parsed)
     except Exception:
         pass
 
@@ -293,6 +298,39 @@ def process_new_entry(entry):
         "ep_info": ep_info,
         "pack_info": pack_info,
     }
+
+def cleanup_expired_notifications():
+    if not config.AUTO_DELETE_NOTIFICATIONS:
+        return
+
+    try:
+        expired = db.get_expired_notifications(config.AUTO_DELETE_HOURS)
+        if not expired:
+            return
+
+        deleted = 0
+        record_ids = []
+
+        for notif in expired:
+            chat_id = str(notif.get("chat_id", "")).strip()
+            msg_id = notif.get("message_id", 0)
+
+            if chat_id and msg_id:
+                success = notifier.delete_message(chat_id, msg_id)
+                if success:
+                    deleted += 1
+                record_ids.append(notif["id"])
+
+            time.sleep(0.05)
+
+        if record_ids:
+            db.delete_expired_notification_records(record_ids)
+
+        if deleted:
+            log.info(f"Auto-deleted {deleted} expired notification(s)")
+
+    except Exception as e:
+        log.debug(f"Notification cleanup: {e}")
 
 
 def send_aggregated_alerts(pending_alerts):
@@ -466,11 +504,14 @@ def _resolve_absolute_episode(entry, parsed):
 
     try:
         import tvdb as tvdb_mod
-        result = tvdb_mod.resolve_by_name(
-            parsed.clean_name,
-            parsed.episode,
-            config.TVDB_API_KEY,
-        )
+        series = tvdb_mod.search_series(parsed.clean_name, config.TVDB_API_KEY)
+        if not series or not series.get("tvdb_id"):
+            return
+
+        tvdb_id = series["tvdb_id"]
+        parsed._tvdb_id = tvdb_id
+
+        result = tvdb_mod.resolve_absolute_episode(tvdb_id, parsed.episode, config.TVDB_API_KEY)
         if result:
             real_season, real_ep = result
             if real_season != 1 or real_ep != parsed.episode:
@@ -502,17 +543,38 @@ def _delete_previous_episode_alerts(show_name, season, current_episode):
         hconn.row_factory = sqlite3.Row
 
         prev_torrents = mconn.execute("""
-            SELECT torrent_id FROM torrents
+            SELECT torrent_id, family_key FROM torrents
             WHERE parsed_name = ? COLLATE NOCASE
               AND parsed_season = ?
               AND parsed_episode < ?
               AND notified = 1
         """, (show_name, season, current_episode)).fetchall()
 
+        if not prev_torrents:
+            current_row = mconn.execute("""
+                SELECT family_key FROM torrents
+                WHERE parsed_name = ? COLLATE NOCASE
+                  AND parsed_season = ?
+                  AND parsed_episode = ?
+                LIMIT 1
+            """, (show_name, season, current_episode)).fetchone()
+
+            if current_row and current_row["family_key"]:
+                fk = current_row["family_key"]
+                anchor = fk.rsplit("|", 1)[0]
+
+                prev_torrents = mconn.execute("""
+                    SELECT torrent_id, family_key FROM torrents
+                    WHERE family_key LIKE ? || '|s%'
+                      AND parsed_season = ?
+                      AND parsed_episode < ?
+                      AND notified = 1
+                """, (anchor, season, current_episode)).fetchall()
+
         for t in prev_torrents:
             notifs = hconn.execute(
                 "SELECT chat_id, message_id FROM notifications WHERE torrent_id=?",
-                (t["torrent_id"],)
+                (t["torrent_id"],),
             ).fetchall()
             for n in notifs:
                 chat_id = n["chat_id"]
@@ -745,6 +807,10 @@ def main():
             check_weekly_summary()
         except Exception as e:
             log.error(f"Weekly summary error: {e}")
+        try:
+            cleanup_expired_notifications()
+        except Exception as e:
+            log.debug(f"Notification cleanup error: {e}")
 
         try:
             check_patterns()

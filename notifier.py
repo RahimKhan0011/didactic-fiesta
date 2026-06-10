@@ -234,6 +234,8 @@ def _format_message(result: MatchResult, ep_info=None, pack_info=None, caption_m
     if movie_kw:
         lines.append(f"🎬 Watchlist: {movie_kw[0].replace('movie:', '')}")
 
+    season_pack_already = pack_info and pack_info.get("season") is not None
+
     for kw in result.matched_keywords:
         kw = str(kw)
         if kw.startswith("new_show:"):
@@ -241,7 +243,8 @@ def _format_message(result: MatchResult, ep_info=None, pack_info=None, caption_m
         elif kw.startswith("premiere:"):
             lines.append("🎬 Season Premiere!")
         elif kw.startswith("season_pack:"):
-            lines.append(f"📦 Season Pack: {kw.replace('season_pack:', '')}")
+            if not season_pack_already:
+                lines.append(f"📦 Season Pack: {kw.replace('season_pack:', '')}")
         elif kw.startswith("batch:"):
             lines.append(f"📦 {kw.replace('batch:', '')}")
 

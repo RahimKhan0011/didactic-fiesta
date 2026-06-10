@@ -660,6 +660,86 @@ def get_all_tracked_shows() -> list[ShowTracker]:
     ]
 
 
+def migrate_family_keys():
+    conn = _connect(DB_MAIN)
+    rows = conn.execute("""
+        SELECT torrent_id, parsed_name, tmdb_id, family_key
+        FROM torrents
+        WHERE tmdb_id IS NOT NULL
+          AND tmdb_id > 0
+          AND family_key NOT LIKE 'tmdb:%'
+    """).fetchall()
+
+    updated = 0
+    for r in rows:
+        old_key = r["family_key"] or ""
+        tmdb_id = r["tmdb_id"]
+        name = (r["parsed_name"] or "").lower().strip()
+
+        if not old_key or not name:
+            continue
+
+        if old_key.startswith(name):
+            suffix = old_key[len(name):]
+        else:
+            parts = old_key.split("|", 1)
+            suffix = f"|{parts[1]}" if len(parts) > 1 else ""
+
+        new_family = f"tmdb:{tmdb_id}{suffix}"
+        new_variant = None
+        new_exact = None
+
+        row_full = conn.execute(
+            "SELECT variant_key, exact_key FROM torrents WHERE torrent_id=?",
+            (r["torrent_id"],)
+        ).fetchone()
+
+        if row_full:
+            old_variant = row_full["variant_key"] or ""
+            old_exact = row_full["exact_key"] or ""
+
+            if old_variant.startswith(old_key):
+                new_variant = new_family + old_variant[len(old_key):]
+            if old_exact.startswith(old_key):
+                new_exact = new_family + old_exact[len(old_key):]
+
+        conn.execute("""
+            UPDATE torrents SET
+                family_key = ?,
+                variant_key = COALESCE(?, variant_key),
+                exact_key = COALESCE(?, exact_key)
+            WHERE torrent_id = ?
+        """, (new_family, new_variant, new_exact, r["torrent_id"]))
+        updated += 1
+
+    conn.commit()
+    conn.close()
+    return updated
+
+def get_expired_notifications(max_age_hours: int = 24) -> list[dict]:
+    cutoff = time.time() - (max_age_hours * 3600)
+    conn = _connect(DB_HISTORY)
+    rows = conn.execute("""
+        SELECT id, torrent_id, chat_id, message_id, sent_at
+        FROM notifications
+        WHERE sent_at < ?
+          AND message_id IS NOT NULL
+          AND message_id > 0
+        ORDER BY sent_at ASC
+    """, (cutoff,)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_expired_notification_records(ids: list[int]):
+    if not ids:
+        return
+    conn = _connect(DB_HISTORY)
+    placeholders = ",".join("?" for _ in ids)
+    conn.execute(f"DELETE FROM notifications WHERE id IN ({placeholders})", ids)
+    conn.commit()
+    conn.close()
+
 def season_pack_exists(name: str, season: int, resolution: str) -> bool:
     if not name or season is None:
         return False
