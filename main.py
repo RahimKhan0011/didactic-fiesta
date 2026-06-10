@@ -41,6 +41,8 @@ FALLBACK_COUNT = 10
 MAX_ITEMS_PER_FEED = 50
 SEEN_STREAK_BREAK = 5
 
+_tmdb_name_cache = {}
+_tvdb_name_cache = {}
 
 def _stop(sig, frame):
     global alive
@@ -89,11 +91,26 @@ def _normalize_family_by_tmdb(entry, parsed):
     if not parsed.clean_name:
         return
 
+    cache_key = parsed.clean_name.lower().strip()
+
+    if cache_key in _tmdb_name_cache:
+        cached = _tmdb_name_cache[cache_key]
+        entry.tmdb_id = cached["tmdb_id"]
+        parsed._tmdb_id = cached["tmdb_id"]
+        if cached.get("canonical"):
+            parsed.clean_name = cached["canonical"]
+        parsed.family_key = ""
+        parsed.variant_key = ""
+        parsed.exact_key = ""
+        parser._build_keys(parsed)
+        return
+
     if entry.tmdb_id:
         parsed._tmdb_id = entry.tmdb_id
         canonical = _get_canonical_name_by_tmdb(entry.tmdb_id)
         if canonical and canonical.lower() != parsed.clean_name.lower():
             parsed.clean_name = canonical
+        _tmdb_name_cache[cache_key] = {"tmdb_id": entry.tmdb_id, "canonical": parsed.clean_name}
         parsed.family_key = ""
         parsed.variant_key = ""
         parsed.exact_key = ""
@@ -110,6 +127,7 @@ def _normalize_family_by_tmdb(entry, parsed):
                 canonical = data.get("title", "")
                 if canonical and canonical.lower() != parsed.clean_name.lower():
                     parsed.clean_name = canonical
+                _tmdb_name_cache[cache_key] = {"tmdb_id": entry.tmdb_id, "canonical": parsed.clean_name}
                 parsed.family_key = ""
                 parsed.variant_key = ""
                 parsed.exact_key = ""
@@ -145,10 +163,13 @@ def _normalize_family_by_tmdb(entry, parsed):
             if canonical and canonical.lower() != parsed.clean_name.lower():
                 parsed.clean_name = canonical
 
+            _tmdb_name_cache[cache_key] = {"tmdb_id": tmdb_id, "canonical": parsed.clean_name}
             parsed.family_key = ""
             parsed.variant_key = ""
             parsed.exact_key = ""
             parser._build_keys(parsed)
+        else:
+            _tmdb_name_cache[cache_key] = {"tmdb_id": 0, "canonical": ""}
     except Exception:
         pass
 
@@ -502,13 +523,21 @@ def _resolve_absolute_episode(entry, parsed):
     if parsed.episode <= 24:
         return
 
+    cache_key = parsed.clean_name.lower().strip()
+
     try:
         import tvdb as tvdb_mod
-        series = tvdb_mod.search_series(parsed.clean_name, config.TVDB_API_KEY)
-        if not series or not series.get("tvdb_id"):
+
+        if cache_key in _tvdb_name_cache:
+            tvdb_id = _tvdb_name_cache[cache_key]
+        else:
+            series = tvdb_mod.search_series(parsed.clean_name, config.TVDB_API_KEY)
+            tvdb_id = series.get("tvdb_id", 0) if series else 0
+            _tvdb_name_cache[cache_key] = tvdb_id
+
+        if not tvdb_id:
             return
 
-        tvdb_id = series["tvdb_id"]
         parsed._tvdb_id = tvdb_id
 
         result = tvdb_mod.resolve_absolute_episode(tvdb_id, parsed.episode, config.TVDB_API_KEY)

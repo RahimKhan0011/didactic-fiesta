@@ -53,8 +53,10 @@ def _clean_audio(audio: str) -> str:
 
 
 def send_match(result: MatchResult, episode_info=None, pack_info=None):
-    prof = _find_profile(result.profile_name)
-    use_tmdb = prof.get("tmdb", False) if prof else False
+    profile_names = [x.strip() for x in str(result.profile_name).split(" + ") if x.strip()]
+    matched_profiles = [_find_profile(name) for name in profile_names]
+    matched_profiles = [p for p in matched_profiles if p]
+    use_tmdb = any(p.get("tmdb", False) for p in matched_profiles)
 
     if use_tmdb and result.entry.parsed:
         p = result.entry.parsed
@@ -85,7 +87,7 @@ def send_match(result: MatchResult, episode_info=None, pack_info=None):
                 result.poster_url,
             )
 
-        if not result.poster_url and config.TVDB_API_KEY and is_tv:
+        if not result.poster_url and config.TVDB_API_KEY:
             try:
                 import tvdb as tvdb_mod2
                 series = tvdb_mod2.search_series(p.clean_name, config.TVDB_API_KEY)
@@ -96,6 +98,24 @@ def send_match(result: MatchResult, episode_info=None, pack_info=None):
                         poster = tvdb_mod2.get_series_artwork(result.tvdb_id, config.TVDB_API_KEY)
                     if poster:
                         result.poster_url = poster
+            except Exception:
+                pass
+
+        if not result.tmdb_rating and result.tvdb_id and config.TVDB_API_KEY:
+            try:
+                import tvdb as tvdb_mod2
+                series = tvdb_mod2.search_series(p.clean_name, config.TVDB_API_KEY)
+                if series:
+                    result.tvdb_id = series.get("tvdb_id", 0)
+            except Exception:
+                pass
+
+        if not result.imdb_id and result.tvdb_id and config.TVDB_API_KEY:
+            try:
+                import tvdb as tvdb_mod2
+                series_data = tvdb_mod2.search_series(p.clean_name, config.TVDB_API_KEY)
+                if series_data and series_data.get("tvdb_id"):
+                    result.tvdb_id = series_data["tvdb_id"]
             except Exception:
                 pass
 
