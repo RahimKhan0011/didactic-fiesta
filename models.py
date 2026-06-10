@@ -101,6 +101,7 @@ class MatchResult:
     is_new_variant: bool = True
     is_cross_tracker: bool = False
     variants: list[dict] = field(default_factory=list)
+    tvdb_id: int = 0
 
 
 @dataclass

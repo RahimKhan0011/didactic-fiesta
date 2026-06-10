@@ -263,6 +263,7 @@ def process_new_entry(entry):
         parsed.group = entry.uploader
 
     _normalize_family_by_tmdb(entry, parsed)
+    _resolve_absolute_episode(entry, parsed)
 
     if parsed.group and parsed.group.lower() in [g.lower() for g in config.get_internal_groups()]:
         parsed.is_internal = True
@@ -450,6 +451,41 @@ def send_aggregated_alerts(pending_alerts):
            time.sleep(0.1)
 
     return had_tier1, sent_count
+
+def _resolve_absolute_episode(entry, parsed):
+    from models import ContentType
+
+    if parsed.content_type not in (ContentType.ANIME_EP, ContentType.EPISODE):
+        return
+    if parsed.season is None or parsed.episode is None:
+        return
+    if parsed.season != 1:
+        return
+    if parsed.episode <= 24:
+        return
+
+    try:
+        import tvdb as tvdb_mod
+        result = tvdb_mod.resolve_by_name(
+            parsed.clean_name,
+            parsed.episode,
+            config.TVDB_API_KEY,
+        )
+        if result:
+            real_season, real_ep = result
+            if real_season != 1 or real_ep != parsed.episode:
+                log.info(
+                    f"TVDB resolved: {parsed.clean_name} "
+                    f"abs={parsed.episode} → S{real_season:02d}E{real_ep:02d}"
+                )
+                parsed.season = real_season
+                parsed.episode = real_ep
+                parsed.family_key = ""
+                parsed.variant_key = ""
+                parsed.exact_key = ""
+                parser._build_keys(parsed)
+    except Exception:
+        pass
 
 def _delete_previous_episode_alerts(show_name, season, current_episode):
     if not show_name or season is None or current_episode is None:

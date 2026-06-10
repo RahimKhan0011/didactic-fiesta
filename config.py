@@ -24,6 +24,7 @@ def _env(key, default=""):
 BOT_TOKEN = _env("TELEGRAM_BOT_TOKEN")
 CHAT_IDS = [c.strip() for c in _env("TELEGRAM_CHAT_IDS", "").split(",") if c.strip()]
 TMDB_API_KEY = _env("TMDB_API_KEY")
+TVDB_API_KEY = os.getenv("TVDB_API_KEY", "")
 LOG_LEVEL = _env("LOG_LEVEL", "INFO").upper()
 BASE_INTERVAL = int(_env("BASE_INTERVAL", "60"))
 TIMEZONE = _env("TIMEZONE", "UTC")

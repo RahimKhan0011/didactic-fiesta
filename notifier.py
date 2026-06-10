@@ -63,6 +63,7 @@ def send_match(result: MatchResult, episode_info=None, pack_info=None):
             ContentType.SEASON_PACK,
             ContentType.COMPLETE,
             ContentType.ANIME_EP,
+            ContentType.ANIME_BATCH,
         )
 
         tmdb_data = None
@@ -83,6 +84,20 @@ def send_match(result: MatchResult, episode_info=None, pack_info=None):
                 result.imdb_id,
                 result.poster_url,
             )
+
+        if not result.poster_url and config.TVDB_API_KEY and is_tv:
+            try:
+                import tvdb as tvdb_mod2
+                series = tvdb_mod2.search_series(p.clean_name, config.TVDB_API_KEY)
+                if series:
+                    result.tvdb_id = series.get("tvdb_id", 0)
+                    poster = series.get("image", "")
+                    if not poster and result.tvdb_id:
+                        poster = tvdb_mod2.get_series_artwork(result.tvdb_id, config.TVDB_API_KEY)
+                    if poster:
+                        result.poster_url = poster
+            except Exception:
+                pass
 
     v, v_label = vel_mod.compute_velocity(result.entry.torrent_id, result.entry.seeders)
     result.velocity = v
@@ -576,19 +591,26 @@ def _build_buttons(result: MatchResult) -> dict:
         buttons.append(row1)
 
     row2 = []
+
     if result.imdb_id:
         row2.append({"text": "🎬 IMDb", "url": f"https://www.imdb.com/title/{result.imdb_id}/"})
+
     if result.tmdb_id:
-        media = (
-            "tv"
-            if result.entry.parsed
-            and result.entry.parsed.content_type
-            in (ContentType.EPISODE, ContentType.SEASON_PACK, ContentType.COMPLETE)
-            else "movie"
+        p = result.entry.parsed
+        is_tv = p and p.content_type in (
+            ContentType.EPISODE,
+            ContentType.SEASON_PACK,
+            ContentType.COMPLETE,
+            ContentType.ANIME_EP,
+            ContentType.ANIME_BATCH,
         )
-        row2.append(
-            {"text": "🎬 TMDB", "url": f"https://www.themoviedb.org/{media}/{result.tmdb_id}"}
-        )
+        media = "tv" if is_tv else "movie"
+        row2.append({"text": "🎬 TMDB", "url": f"https://www.themoviedb.org/{media}/{result.tmdb_id}"})
+
+    tvdb_id = getattr(result, "tvdb_id", 0)
+    if tvdb_id:
+        row2.append({"text": "📺 TVDB", "url": f"https://www.thetvdb.com/series/{tvdb_id}"})
+
     if row2:
         buttons.append(row2)
 
