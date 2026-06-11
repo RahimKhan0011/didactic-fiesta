@@ -237,7 +237,7 @@ def _format_message(result: MatchResult, ep_info=None, pack_info=None, caption_m
                 lines.append("")
                 lines.append(f"📺 Previous available: {prev_list}")
 
-    if pack_info:
+    if pack_info and p and p.content_type != ContentType.BOXSET:
         if pack_info.get("season") is not None:
             lines.append(f"📦 Season Pack: S{int(pack_info['season']):02d}")
 
@@ -263,7 +263,7 @@ def _format_message(result: MatchResult, ep_info=None, pack_info=None, caption_m
         elif kw.startswith("premiere:"):
             lines.append("🎬 Season Premiere!")
         elif kw.startswith("season_pack:"):
-            if not season_pack_already:
+            if not season_pack_already and p and p.content_type != ContentType.BOXSET:
                 lines.append(f"📦 Season Pack: {kw.replace('season_pack:', '')}")
         elif kw.startswith("batch:"):
             lines.append(f"📦 {kw.replace('batch:', '')}")

@@ -493,6 +493,11 @@ def send_aggregated_alerts(pending_alerts):
                     notifier.delete_message(chat_id, msg_id)
                     deleted_messages.add(msg_key)
 
+        if pack_info and result.entry.parsed:
+            _delete_episode_alerts_for_season_pack(result.entry.parsed)
+        if pack_info and result.entry.parsed:
+            _delete_episode_alerts_for_season_pack(result.entry.parsed)
+
         if family_data["had_tier1"]:
            had_tier1 = True
 
@@ -639,6 +644,47 @@ def _delete_previous_episode_alerts(show_name, season, current_episode):
                 msg_id = n["message_id"]
                 if chat_id and msg_id:
                     notifier.delete_message(str(chat_id), msg_id)
+
+        mconn.close()
+        hconn.close()
+    except Exception:
+        pass
+
+def _delete_episode_alerts_for_season_pack(parsed):
+    if not parsed.clean_name or parsed.season is None:
+        return
+    if parsed.content_type != ContentType.SEASON_PACK:
+        return
+
+    import sqlite3
+
+    try:
+        mconn = sqlite3.connect(str(config.DB_MAIN))
+        mconn.row_factory = sqlite3.Row
+        hconn = sqlite3.connect(str(config.DB_HISTORY))
+        hconn.row_factory = sqlite3.Row
+
+        prev_eps = mconn.execute("""
+            SELECT torrent_id FROM torrents
+            WHERE parsed_name = ? COLLATE NOCASE
+              AND parsed_season = ?
+              AND content_type IN ('episode', 'anime_episode')
+              AND notified = 1
+        """, (parsed.clean_name, parsed.season)).fetchall()
+
+        for t in prev_eps:
+            notifs = hconn.execute(
+                "SELECT chat_id, message_id FROM notifications WHERE torrent_id=?",
+                (t["torrent_id"],),
+            ).fetchall()
+            for n in notifs:
+                chat_id = n["chat_id"]
+                msg_id = n["message_id"]
+                if chat_id and msg_id:
+                    notifier.delete_message(str(chat_id), msg_id)
+
+        if prev_eps:
+            log.info(f"Deleted {len(prev_eps)} episode alert(s) for {parsed.clean_name} S{parsed.season:02d} season pack")
 
         mconn.close()
         hconn.close()

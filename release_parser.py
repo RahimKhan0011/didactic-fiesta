@@ -150,7 +150,7 @@ ERAI_PREFIX_PATTERN = re.compile(r'^\[(?:Torrent|Erai-raws)\]\s*', re.IGNORECASE
 ERAI_STATE_PATTERN = re.compile(r'\[(Airing|Encoded)\]\s*$', re.IGNORECASE)
 
 LEADING_LANGUAGE_TAG_PATTERN = re.compile(
-    r'^\[(?:(?:English|Turkish|Japanese|Korean|Chinese|Hindi|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi)\s*)+\]\s*',
+    r'^\[(?:(?:English|Turkish|Japanese|Korean|Chinese|Yue|Cantonese|Hindi|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi|Mandarin|Thai|Vietnamese|Indonesian|Malay|Tamil|Telugu)\s*)+\]\s*',
     re.IGNORECASE,
 )
 
@@ -193,6 +193,7 @@ def parse(title: str, category: str = "") -> ParsedRelease:
 
     title_clean = AR_PREFIX_PATTERN.sub("", title_clean).strip()
     title_clean = FL_TAG_PATTERN.sub("", title_clean).strip()
+    title_clean = re.sub(r'^\[REQ\]\s*', '', title_clean, flags=re.IGNORECASE).strip()
     erai_candidate = title_clean
 
     erai = _try_erai(erai_candidate)
@@ -212,7 +213,7 @@ def parse(title: str, category: str = "") -> ParsedRelease:
         title_clean = stripped
 
     title_clean = re.sub(
-        r'\[(?:(?:English|Japanese|Korean|Chinese|Hindi|Turkish|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi)\s*)+(?:Dub|Sub|Audio|Dubbed|Subbed)?\]',
+        r'\[(?:(?:English|Japanese|Korean|Chinese|Yue|Cantonese|Hindi|Turkish|Arabic|Spanish|French|German|Italian|Portuguese|Russian|Multi|Mandarin|Thai|Vietnamese|Indonesian|Malay|Tamil|Telugu)\s*)+(?:Dub|Sub|Audio|Dubbed|Subbed)?\]',
         '',
         title_clean,
         flags=re.IGNORECASE,
@@ -493,15 +494,37 @@ def _find_match(title: str, options: list[str]) -> str:
 
 
 def _extract_group(title: str) -> str:
-    m = re.search(r'-\s*(\w[\w@]*(?:\s+\w[\w@]*)?)\s*(?:\[.*\])?$', title)
+    title = title.strip()
+    
+    m = re.search(r'-([A-Za-z0-9@]+(?:\s+[A-Za-z0-9@]+)*)\s*$', title)
     if m:
-        return m.group(1).strip()
-    m = re.search(r'-\s*(\w[\w@]*(?:\s+\w[\w@]*)?)\s*\)', title)
+        grp = m.group(1).strip()
+        skip = ["mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "bluray", "remux", "dl"]
+        if grp.lower() not in skip:
+            return grp
+
+    m = re.search(r'-([A-Za-z0-9@]+)\s*(?:\[.*\])?$', title)
     if m:
-        return m.group(1).strip()
+        grp = m.group(1).strip()
+        skip = ["mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "bluray", "remux", "dl"]
+        if grp.lower() not in skip:
+            return grp
+
+    m = re.search(r'\s([A-Za-z][A-Za-z0-9@]{2,})\s*$', title)
+    if m:
+        grp = m.group(1).strip()
+        skip = [
+            "mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "bluray", 
+            "remux", "dl", "dts", "aac", "atmos", "hdr", "sdr", "dv", "hdr10",
+            "1080p", "2160p", "720p", "480p", "complete", "proper", "repack",
+        ]
+        if grp.lower() not in skip:
+            return grp
+
     m = re.search(r'^\[([^\]]+)\]', title)
     if m:
         return m.group(1).strip()
+
     return ""
 
 
@@ -684,6 +707,10 @@ def _try_anime(title: str) -> Optional[ParsedRelease]:
         p.resolution = _find_match(title, RESOLUTIONS)
         return p
 
+    title = re.sub(r'^\[REQ\]\s*', '', title, flags=re.IGNORECASE).strip()
+    title = re.sub(r'\[(?:BD|DVD|Blu-?Ray)\s*\d+p[^\]]*\]', '', title, flags=re.IGNORECASE).strip()
+    title = re.sub(r'\[(?:Dual[- ]?Audio|Multi[- ]?Audio|Eng(?:lish)?[- ]?Sub(?:bed)?)\]', '', title, flags=re.IGNORECASE).strip()
+
     m = ANIME_GROUP_PATTERN.match(title)
     if not m:
         return None
@@ -789,6 +816,10 @@ def _parse_standard(title: str, category: str) -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
 
     clean_title = re.sub(r'\((\d{4})\)', r'\1', title)
+    clean_title = re.sub(r'^\[REQ\]\s*', '', clean_title, flags=re.IGNORECASE).strip()
+    clean_title = re.sub(r'\[[A-Za-z0-9_-]+\]\s*(?=\[|\w)', '', clean_title).strip()
+    clean_title = re.sub(r'\[(?:BD|DVD|Blu-?Ray)\s*\d+p[^\]]*\]', '', clean_title, flags=re.IGNORECASE).strip()
+    clean_title = re.sub(r'\[(?:Dual[- ]?Audio|Multi[- ]?Audio)\]', '', clean_title, flags=re.IGNORECASE).strip()
 
     p.group = _extract_group(clean_title)
     p.resolution = _find_match(clean_title, RESOLUTIONS)
