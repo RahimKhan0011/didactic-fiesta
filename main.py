@@ -82,10 +82,40 @@ def compute_interval(had_tier1: bool) -> int:
 def _normalize_tracker_title(entry):
     if entry.tracker == "ar":
         entry.title = re.sub(
-            r'^(?:Tv(?:Pack)?(?:UHD|HD|SD)?|Movie(?:UHD|HD|SD|4K)?|GamesPC|AppsPC|Music(?:HD|SD)?|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
+            r'^(?:Tv(?:Pack)?(?:UHD|HD|SD)?|Movie(?:UHD|HD|SD|4K)?|Anime(?:UHD|HD|SD)?|Games\w*|AppsPC|Music(?:HD|SD)?|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
             '',
             entry.title
         ).strip()
+
+def _tmdb_name_candidates(name: str) -> list[str]:
+    raw = (name or "").strip()
+    if not raw:
+        return []
+
+    candidates = [raw]
+
+    m = re.match(r'^(.*?)\s*\(([^)]+)\)\s*$', raw)
+    if m:
+        outer = m.group(1).strip()
+        inner = m.group(2).strip()
+        if outer:
+            candidates.append(outer)
+        if inner:
+            candidates.append(inner)
+
+    no_paren = re.sub(r'\([^)]*\)', '', raw).strip()
+    if no_paren:
+        candidates.append(no_paren)
+
+    seen = set()
+    out = []
+    for c in candidates:
+        k = c.lower()
+        if c and k not in seen:
+            seen.add(k)
+            out.append(c)
+
+    return out
 
 def _normalize_family_by_tmdb(entry, parsed):
     if not parsed.clean_name:
@@ -146,10 +176,15 @@ def _normalize_family_by_tmdb(entry, parsed):
             ContentType.COMPLETE,
         )
 
-        if is_tv:
-            data = tmdb_mod.search_tv(parsed.clean_name)
-        else:
-            data = tmdb_mod.search_movie(parsed.clean_name, parsed.year)
+        data = None
+        for candidate in _tmdb_name_candidates(parsed.clean_name):
+            if is_tv:
+                data = tmdb_mod.search_tv(candidate)
+            else:
+                data = tmdb_mod.search_movie(candidate, parsed.year)
+
+            if data and data.get("tmdb_id"):
+                break
 
         if data and data.get("tmdb_id"):
             tmdb_id = data["tmdb_id"]

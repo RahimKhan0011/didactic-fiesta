@@ -130,17 +130,21 @@ ANIME_S_AFTER_NAME_DASH_EP_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+FOREIGN_EPISODE_PATTERN = re.compile(
+    r'^(?P<name>.+?)\s+(?P<episode>\d{1,4})\s*(?:Blm|Bölüm|Bolum)\b(?:.*)?$',
+    re.IGNORECASE,
+)
 SEASON_EP_PATTERN = re.compile(r'S(\d{1,3})(?:E(\d{1,3})(?:-?E?(\d{1,3}))?)?', re.IGNORECASE)
 EP_ONLY_PATTERN = re.compile(r'\bE(\d{1,4})(?:-?E?(\d{1,4}))?\b', re.IGNORECASE)
 YEAR_PATTERN = re.compile(r'(?:^|[\s.(])(\d{4})(?:[\s.)]|$)')
-GAME_VERSION_PATTERN = re.compile(r'[Vv]?(\d+(?:\.\d+)+)')
+GAME_VERSION_PATTERN = re.compile(r'\b[Vv]?(\d+(?:[._ ]\d+)+)\b')
 SPORTS_PATTERN = re.compile(r'(?:MLB|NFL|NBA|NHL|UFC|WWE|F1|MotoGP|Boxing)\s+\d{4}', re.IGNORECASE)
 DAILY_SHOW_PATTERN = re.compile(r'^(.+?)\s+(\d{4})\s+(\d{2})\s+(\d{2})(?:\s+(.+?))?\s+\d+p', re.IGNORECASE)
 DAILY_SHOW_DOT_PATTERN = re.compile(r'^(.+?)\.(\d{4})\.(\d{2})\.(\d{2})(?:\.(.+?))?\.\d+p', re.IGNORECASE)
 HUNO_TITLE_PATTERN = re.compile(r'^(.+?)\s+\((\d{4})\)\s+\((\d{3,4}p\s.+)\)$')
 
 AR_PREFIX_PATTERN = re.compile(
-    r'^(?:Tv(?:Pack)?(?:UHD|HD|SD)?|Movie(?:UHD|HD|SD|4K)?|Games\w*|AppsPC|Music(?:HD|SD)?|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
+    r'^(?:Tv(?:Pack)?(?:UHD|HD|SD)?|Movie(?:UHD|HD|SD|4K)?|Anime(?:UHD|HD|SD)?|Games\w*|AppsPC|Music(?:HD|SD)?|EBooks|AudioBooks)\s+\d+\s+\d+\s+',
     re.IGNORECASE
 )
 
@@ -277,6 +281,13 @@ def parse(title: str, category: str = "") -> ParsedRelease:
     daily_dot = DAILY_SHOW_DOT_PATTERN.match(title_clean)
     if daily_dot:
         p = _parse_daily_dot(title_clean, daily_dot, category)
+        _detect_service(p, title_clean)
+        _build_keys(p)
+        return p
+
+    foreign_ep = FOREIGN_EPISODE_PATTERN.match(title_clean)
+    if foreign_ep:
+        p = _parse_foreign_episode(title_clean, foreign_ep, category)
         _detect_service(p, title_clean)
         _build_keys(p)
         return p
@@ -495,38 +506,57 @@ def _find_match(title: str, options: list[str]) -> str:
 
 def _extract_group(title: str) -> str:
     title = title.strip()
-    
-    m = re.search(r'-([A-Za-z0-9@]+(?:\s+[A-Za-z0-9@]+)*)\s*$', title)
+
+    skip = {
+        "req", "mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "webrip",
+        "webdl", "web-dl", "bluray", "remux", "dl", "dts", "aac", "ac3", "eac3",
+        "eac-3", "dd", "ddp", "dd+", "truehd", "atmos", "hdr", "sdr", "dv",
+        "hdr10", "hdr10+", "1080p", "2160p", "720p", "480p", "complete",
+        "proper", "repack", "final"
+    }
+
+    def _valid(grp: str) -> str:
+        grp = (grp or "").strip().strip("-").strip()
+        if not grp:
+            return ""
+
+        gl = grp.lower()
+        if gl in skip:
+            return ""
+
+        if re.fullmatch(r's\d{1,3}', grp, re.IGNORECASE):
+            return ""
+        if re.fullmatch(r'e\d{1,4}', grp, re.IGNORECASE):
+            return ""
+        if re.fullmatch(r's\d{1,3}e\d{1,4}', grp, re.IGNORECASE):
+            return ""
+        if re.fullmatch(r'\d{3,4}p', grp, re.IGNORECASE):
+            return ""
+
+        if re.fullmatch(r'(?:aac|ac3|eac3|eac-3|dd|ddp|dd\+|truehd|atmos)(?:[ .]?\d(?:[ .]?\d)?)?', grp, re.IGNORECASE):
+            return ""
+
+        return grp
+
+    m = re.match(r'^\[([^\]]+)\]', title)
     if m:
-        grp = m.group(1).strip()
-        skip = ["mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "bluray", "remux", "dl"]
-        if grp.lower() not in skip:
+        grp = _valid(m.group(1))
+        if grp:
             return grp
 
-    m = re.search(r'-([A-Za-z0-9@]+)\s*(?:\[.*\])?$', title)
+    m = re.search(r'-\s*([A-Za-z0-9@]+(?:\s+[A-Za-z0-9@]+)*)\s*$', title)
     if m:
-        grp = m.group(1).strip()
-        skip = ["mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "bluray", "remux", "dl"]
-        if grp.lower() not in skip:
+        grp = _valid(m.group(1))
+        if grp:
             return grp
 
     m = re.search(r'\s([A-Za-z][A-Za-z0-9@]{2,})\s*$', title)
     if m:
-        grp = m.group(1).strip()
-        skip = [
-            "mp4", "mkv", "avi", "264", "265", "hevc", "avc", "web", "bluray", 
-            "remux", "dl", "dts", "aac", "atmos", "hdr", "sdr", "dv", "hdr10",
-            "1080p", "2160p", "720p", "480p", "complete", "proper", "repack",
-        ]
-        if grp.lower() not in skip:
+        grp = _valid(m.group(1))
+        if grp:
             return grp
 
-    m = re.search(r'^\[([^\]]+)\]', title)
-    if m:
-        return m.group(1).strip()
-
     return ""
-
 
 def _get_release_revision(p: ParsedRelease) -> str:
     for tag in p.tags:
@@ -592,14 +622,24 @@ def _build_keys(p: ParsedRelease):
 
     src = (p.source_family or p.source or "").lower()
     svc = (p.service_code or "").lower()
-    p.variant_key = f"{p.family_key}|{res}|{src}|{svc}"
+
+    if p.content_type in (ContentType.GAME, ContentType.GAME_UPDATE):
+        gtype = "update" if p.content_type == ContentType.GAME_UPDATE else "game"
+        gver = (p.game_version or "").lower()
+        p.variant_key = f"{p.family_key}|{gtype}|{gver}"
+    else:
+        p.variant_key = f"{p.family_key}|{res}|{src}|{svc}"
 
     grp = (p.group or "").lower()
     cod = (p.codec or "").lower()
     aud = (p.audio or "").lower()
     hdr = (p.hdr or "").lower()
     rev = _get_release_revision(p).lower()
-    p.exact_key = f"{p.variant_key}|{cod}|{aud}|{hdr}|{grp}|{rev}"
+
+    if p.content_type in (ContentType.GAME, ContentType.GAME_UPDATE):
+        p.exact_key = f"{p.variant_key}|{grp}|{rev}"
+    else:
+        p.exact_key = f"{p.variant_key}|{cod}|{aud}|{hdr}|{grp}|{rev}"
 
 def _parse_huno_title(title: str, match, category: str) -> ParsedRelease:
     name_part = match.group(1).strip()
@@ -648,6 +688,18 @@ def _parse_huno_title(title: str, match, category: str) -> ParsedRelease:
 
     return p
 
+def _parse_foreign_episode(title: str, match, category: str) -> ParsedRelease:
+    p = ParsedRelease(raw_title=title)
+    p.clean_name = match.group("name").strip()
+    p.season = 1
+    p.episode = int(match.group("episode"))
+    p.content_type = ContentType.EPISODE
+    p.group = _extract_group(title)
+    p.resolution = _find_match(title, RESOLUTIONS)
+    p.source, p.source_family = _find_source(title)
+    p.codec = _find_match(title, CODECS)
+    p.audio = _find_audio(title)
+    return p
 
 def _parse_daily(title: str, match, category: str) -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
@@ -781,25 +833,28 @@ def _parse_sports(title: str, category: str) -> ParsedRelease:
 
 def _parse_game(title: str, category: str) -> ParsedRelease:
     p = ParsedRelease(raw_title=title)
-    if "update" in title.lower() or "patch" in title.lower() or "dlc" in title.lower():
+
+    title_lower = title.lower()
+    if "update" in title_lower or "patch" in title_lower or "dlc" in title_lower:
         p.content_type = ContentType.GAME_UPDATE
     else:
         p.content_type = ContentType.GAME
 
     p.group = _extract_group(title)
 
+    raw_version_token = ""
     vm = GAME_VERSION_PATTERN.search(title)
     if vm:
-        p.game_version = vm.group(1)
+        raw_version_token = vm.group(0)
+        p.game_version = re.sub(r'[ _]+', '.', vm.group(1)).strip('.')
 
     name = title
+
     if p.group:
         name = re.sub(r'-' + re.escape(p.group) + r'$', '', name)
-    if p.game_version:
-        name = name.replace(p.game_version, "")
 
-    name = re.sub(r'\bP\s*S0?5\b', ' ', name, flags=re.IGNORECASE)
-    name = re.sub(r'\bP\s*S0?4\b', ' ', name, flags=re.IGNORECASE)
+    if raw_version_token:
+        name = name.replace(raw_version_token, "")
 
     for remove in ["Update", "Patch", "DLC", "Portable", "P2P", "NSW", "PS5", "PS4", "Xbox", "Switch"]:
         name = re.sub(r'\b' + remove + r'\b', '', name, flags=re.IGNORECASE)
@@ -817,7 +872,6 @@ def _parse_standard(title: str, category: str) -> ParsedRelease:
 
     clean_title = re.sub(r'\((\d{4})\)', r'\1', title)
     clean_title = re.sub(r'^\[REQ\]\s*', '', clean_title, flags=re.IGNORECASE).strip()
-    clean_title = re.sub(r'\[[A-Za-z0-9_-]+\]\s*(?=\[|\w)', '', clean_title).strip()
     clean_title = re.sub(r'\[(?:BD|DVD|Blu-?Ray)\s*\d+p[^\]]*\]', '', clean_title, flags=re.IGNORECASE).strip()
     clean_title = re.sub(r'\[(?:Dual[- ]?Audio|Multi[- ]?Audio)\]', '', clean_title, flags=re.IGNORECASE).strip()
 
