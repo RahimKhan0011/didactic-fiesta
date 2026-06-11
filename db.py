@@ -730,6 +730,20 @@ def get_expired_notifications(max_age_hours: int = 24) -> list[dict]:
     conn.close()
     return [dict(r) for r in rows]
 
+def tmdb_has_later_episode(tmdb_id: int, season: int) -> bool:
+    if not tmdb_id or season is None:
+        return False
+
+    conn = _connect(DB_MAIN)
+    row = conn.execute("""
+        SELECT 1 FROM torrents
+        WHERE tmdb_id = ?
+          AND parsed_season > ?
+          AND parsed_episode IS NOT NULL
+        LIMIT 1
+    """, (tmdb_id, season)).fetchone()
+    conn.close()
+    return row is not None
 
 def delete_expired_notification_records(ids: list[int]):
     if not ids:

@@ -1,3 +1,4 @@
+import re
 import time
 import logging
 import sqlite3
@@ -127,6 +128,16 @@ def match_entry(entry: TorrentEntry, parsed: ParsedRelease) -> list[MatchResult]
                     f"(latest known E{latest_known:02d})"
                 )
                 return "__OLDER_SKIPPED__"
+
+    if parsed.content_type in (ContentType.EPISODE, ContentType.ANIME_EP):
+        if entry.tmdb_id and parsed.season is not None and parsed.episode is not None:
+            if re.search(r'\bPart\s+\d+\b', entry.title or "", re.IGNORECASE):
+                if db.tmdb_has_later_episode(entry.tmdb_id, parsed.season):
+                    log.debug(
+                        f"Part-numbered anime suppressed due to later aired season: "
+                        f"{entry.title[:80]}"
+                    )
+                    return "__OLDER_SKIPPED__"
 
     title_lower = (entry.title or "").lower()
     if parsed.content_type in (ContentType.EPISODE, ContentType.ANIME_EP):
